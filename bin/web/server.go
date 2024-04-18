@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cronsun/db/entries"
 	"flag"
 	slog "log"
 	"net"
@@ -10,17 +11,17 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/event"
-	"github.com/shunfei/cronsun/log"
-	"github.com/shunfei/cronsun/web"
+	"cronsun"
+	"cronsun/conf"
+	"cronsun/event"
+	"cronsun/log"
+	"cronsun/web"
 )
 
 var (
 	level    = flag.Int("l", 0, "log level, -1:debug, 0:info, 1:warn, 2:error")
-	confFile = flag.String("conf", "conf/files/base.json", "config file path")
-	network  = flag.String("network", "", "network protocol of listen address: ipv4/ipv6, or empty use both")
+	confFile = flag.String("conf", "./conf/base.json", "config file path")
+	network  = flag.String("network", "0.0.0.0", "network protocol of listen address: ipv4/ipv6, or empty use both")
 )
 
 func main() {
@@ -39,9 +40,10 @@ func main() {
 		log.Errorf(err.Error())
 		return
 	}
-	web.EnsureJobLogIndex()
+	entries.EnsureJobLogIndex()
 
 	l, err := net.Listen(checkNetworkProtocol(*network), conf.Config.Web.BindAddr)
+	log.Debugf("listen %s:%s", checkNetworkProtocol(*network), conf.Config.Web.BindAddr)
 	if err != nil {
 		log.Errorf(err.Error())
 		return

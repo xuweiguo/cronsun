@@ -7,8 +7,10 @@ bin/*/*server
 web/ui/node_modules
 web/ui/package-lock.json
 web/ui/semantic.json
-web/ui/semantic
+web/ui/semantic1
 web/ui/dist
 .vscode
 *npm-debug.log
 vendor
+/runtime/
+/go.sum

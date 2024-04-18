@@ -1,12 +1,13 @@
 package web
 
 import (
+	"cronsun/db/entries"
 	"time"
 
 	v3 "github.com/coreos/etcd/clientv3"
 
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
+	"cronsun"
+	"cronsun/conf"
 )
 
 type Info struct{}
@@ -14,23 +15,23 @@ type Info struct{}
 func (inf *Info) Overview(ctx *Context) {
 	var overview = struct {
 		TotalJobs        int64                   `json:"totalJobs"`
-		JobExecuted      *cronsun.StatExecuted   `json:"jobExecuted"`
-		JobExecutedDaily []*cronsun.StatExecuted `json:"jobExecutedDaily"`
+		JobExecuted      *entries.StatExecuted   `json:"jobExecuted"`
+		JobExecutedDaily []*entries.StatExecuted `json:"jobExecutedDaily"`
 	}{}
 
 	const day = 24 * time.Hour
 	days := 7
 
-	overview.JobExecuted, _ = cronsun.JobLogStat()
+	overview.JobExecuted, _ = entries.JobLogStat()
 	end := time.Now()
 	begin := end.Add(time.Duration(1-days) * day)
-	statList, _ := cronsun.JobLogDailyStat(begin, end)
-	list := make([]*cronsun.StatExecuted, days)
+	statList, _ := entries.JobLogDailyStat(begin, end)
+	list := make([]*entries.StatExecuted, days)
 	cur := begin
 
 	for i := 0; i < days; i++ {
 		date := cur.Format("2006-01-02")
-		var se *cronsun.StatExecuted
+		var se *entries.StatExecuted
 
 		for j := range statList {
 			if statList[j].Date == date {
@@ -43,7 +44,7 @@ func (inf *Info) Overview(ctx *Context) {
 		if se != nil {
 			list[i] = se
 		} else {
-			list[i] = &cronsun.StatExecuted{Date: date}
+			list[i] = &entries.StatExecuted{Date: date}
 		}
 
 		cur = cur.Add(day)

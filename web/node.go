@@ -1,18 +1,17 @@
 package web
 
 import (
+	"cronsun/db/entries"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"cronsun"
+	"cronsun/conf"
+	"cronsun/log"
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/gorilla/mux"
-	"gopkg.in/mgo.v2/bson"
-
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
 )
 
 type Node struct{}
@@ -140,7 +139,7 @@ func (n *Node) DeleteGroup(ctx *Context) {
 }
 
 func (n *Node) GetNodes(ctx *Context) {
-	nodes, err := cronsun.GetNodes()
+	nodes, err := entries.GetNodes()
 	if err != nil {
 		outJSONWithCode(ctx.W, http.StatusInternalServerError, err.Error())
 		return
@@ -185,7 +184,7 @@ func (n *Node) DeleteNode(ctx *Context) {
 		return
 	}
 
-	err = cronsun.RemoveNode(bson.M{"_id": ip})
+	err = entries.RemoveNodeById(ip)
 	if err != nil {
 		outJSONWithCode(ctx.W, http.StatusInternalServerError, err.Error())
 		return

@@ -1,13 +1,14 @@
 package web
 
 import (
+	"cronsun/db/entries"
 	"net/http"
 	"path"
 	"strings"
 
 	"github.com/gorilla/mux"
 
-	"github.com/shunfei/cronsun"
+	"cronsun"
 )
 
 func GetVersion(ctx *Context) {
@@ -45,69 +46,69 @@ func initRouters() (s *http.Server, err error) {
 	subrouter.Handle("/admin/account", h).Methods("POSt")
 
 	// get job list
-	h = NewAuthHandler(jobHandler.GetList, cronsun.Reporter)
+	h = NewAuthHandler(jobHandler.GetList, entries.Reporter)
 	subrouter.Handle("/jobs", h).Methods("GET")
 	// get a job group list
-	h = NewAuthHandler(jobHandler.GetGroups, cronsun.Reporter)
+	h = NewAuthHandler(jobHandler.GetGroups, entries.Reporter)
 	subrouter.Handle("/job/groups", h).Methods("GET")
 	// create/update a job
-	h = NewAuthHandler(jobHandler.UpdateJob, cronsun.Developer)
+	h = NewAuthHandler(jobHandler.UpdateJob, entries.Developer)
 	subrouter.Handle("/job", h).Methods("PUT")
 	// pause/start
-	h = NewAuthHandler(jobHandler.ChangeJobStatus, cronsun.Developer)
+	h = NewAuthHandler(jobHandler.ChangeJobStatus, entries.Developer)
 	subrouter.Handle("/job/{group}-{id}", h).Methods("POST")
 	// batch pause/start
-	h = NewAuthHandler(jobHandler.BatchChangeJobStatus, cronsun.Developer)
+	h = NewAuthHandler(jobHandler.BatchChangeJobStatus, entries.Developer)
 	subrouter.Handle("/jobs/{op}", h).Methods("POST")
 	// get a job
-	h = NewAuthHandler(jobHandler.GetJob, cronsun.Reporter)
+	h = NewAuthHandler(jobHandler.GetJob, entries.Reporter)
 	subrouter.Handle("/job/{group}-{id}", h).Methods("GET")
 	// remove a job
-	h = NewAuthHandler(jobHandler.DeleteJob, cronsun.Developer)
+	h = NewAuthHandler(jobHandler.DeleteJob, entries.Developer)
 	subrouter.Handle("/job/{group}-{id}", h).Methods("DELETE")
 
-	h = NewAuthHandler(jobHandler.GetJobNodes, cronsun.Reporter)
+	h = NewAuthHandler(jobHandler.GetJobNodes, entries.Reporter)
 	subrouter.Handle("/job/{group}-{id}/nodes", h).Methods("GET")
 
-	h = NewAuthHandler(jobHandler.JobExecute, cronsun.Developer)
+	h = NewAuthHandler(jobHandler.JobExecute, entries.Developer)
 	subrouter.Handle("/job/{group}-{id}/execute", h).Methods("PUT")
 
 	// query executing job
-	h = NewAuthHandler(jobHandler.GetExecutingJob, cronsun.Reporter)
+	h = NewAuthHandler(jobHandler.GetExecutingJob, entries.Reporter)
 	subrouter.Handle("/job/executing", h).Methods("GET")
 
 	// kill an executing job
-	h = NewAuthHandler(jobHandler.KillExecutingJob, cronsun.Developer)
+	h = NewAuthHandler(jobHandler.KillExecutingJob, entries.Developer)
 	subrouter.Handle("/job/executing", h).Methods("DELETE")
 
 	// get job log list
-	h = NewAuthHandler(jobLogHandler.GetList, cronsun.Reporter)
+	h = NewAuthHandler(jobLogHandler.GetList, entries.Reporter)
 	subrouter.Handle("/logs", h).Methods("GET")
 	// get job log
-	h = NewAuthHandler(jobLogHandler.GetDetail, cronsun.Developer)
+	h = NewAuthHandler(jobLogHandler.GetDetail, entries.Developer)
 	subrouter.Handle("/log/{id}", h).Methods("GET")
 
-	h = NewAuthHandler(nodeHandler.GetNodes, cronsun.Reporter)
+	h = NewAuthHandler(nodeHandler.GetNodes, entries.Reporter)
 	subrouter.Handle("/nodes", h).Methods("GET")
-	h = NewAuthHandler(nodeHandler.DeleteNode, cronsun.Developer)
+	h = NewAuthHandler(nodeHandler.DeleteNode, entries.Developer)
 	subrouter.Handle("/node/{ip}", h).Methods("DELETE")
 	// get node group list
-	h = NewAuthHandler(nodeHandler.GetGroups, cronsun.Reporter)
+	h = NewAuthHandler(nodeHandler.GetGroups, entries.Reporter)
 	subrouter.Handle("/node/groups", h).Methods("GET")
 	// get a node group by group id
-	h = NewAuthHandler(nodeHandler.GetGroupByGroupId, cronsun.Reporter)
+	h = NewAuthHandler(nodeHandler.GetGroupByGroupId, entries.Reporter)
 	subrouter.Handle("/node/group/{id}", h).Methods("GET")
 	// create/update a node group
-	h = NewAuthHandler(nodeHandler.UpdateGroup, cronsun.Developer)
+	h = NewAuthHandler(nodeHandler.UpdateGroup, entries.Developer)
 	subrouter.Handle("/node/group", h).Methods("PUT")
 	// delete a node group
-	h = NewAuthHandler(nodeHandler.DeleteGroup, cronsun.Developer)
+	h = NewAuthHandler(nodeHandler.DeleteGroup, entries.Developer)
 	subrouter.Handle("/node/group/{id}", h).Methods("DELETE")
 
-	h = NewAuthHandler(infoHandler.Overview, cronsun.Reporter)
+	h = NewAuthHandler(infoHandler.Overview, entries.Reporter)
 	subrouter.Handle("/info/overview", h).Methods("GET")
 
-	h = NewAuthHandler(configHandler.Configuratios, cronsun.Reporter)
+	h = NewAuthHandler(configHandler.Configuratios, entries.Reporter)
 	subrouter.Handle("/configurations", h).Methods("GET")
 
 	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/", newEmbeddedFileServer("", "index.html")))

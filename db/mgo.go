@@ -1,12 +1,14 @@
 package db
 
 import (
+	"context"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"net/url"
 	"strings"
 	"time"
-
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type Config struct {
@@ -22,7 +24,7 @@ type Config struct {
 
 type Mdb struct {
 	*Config
-	*mgo.Session
+	*mongo.Client
 }
 
 func NewMdb(c *Config) (*Mdb, error) {
@@ -48,49 +50,92 @@ func (m *Mdb) connect() error {
 		connectionString += "?authSource=" + m.Config.AuthSource
 	}
 
-	session, err := mgo.DialWithTimeout(connectionString, m.Config.Timeout)
+	ctx, _ := context.WithTimeout(context.Background(), m.Config.Timeout)
+	// 创建MongoDB客户端
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://"+connectionString))
 	if err != nil {
 		return err
 	}
-
-	m.Session = session
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+	m.Client = client
 	return nil
 }
 
-func (m *Mdb) WithC(collection string, job func(*mgo.Collection) error) error {
-	s := m.Session.New()
-	err := job(s.DB(m.Config.Database).C(collection))
-	s.Close()
+func (m *Mdb) WithC(collection string, job func(*mongo.Collection) error) error {
+	database := m.Client.Database(m.Config.Database)
+	collectionObj := database.Collection(collection)
+
+	// 创建会话选项
+	sessionOptions := options.Session()
+	sessionOptions.SetCausalConsistency(true) // 设置原因一致性
+
+	// 开始会话
+	session, err := m.Client.StartSession(sessionOptions)
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(context.Background())
+
+	// 在会话中执行操作
+	err = mongo.WithSession(context.Background(), session, func(sessionContext mongo.SessionContext) error {
+		err := job(collectionObj)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	return err
 }
 
 func (self *Mdb) Upsert(collection string, selector interface{}, change interface{}) error {
-	return self.WithC(collection, func(c *mgo.Collection) error {
-		_, err := c.Upsert(selector, change)
+	return self.WithC(collection, func(c *mongo.Collection) error {
+		// 执行upsert操作
+		opts := options.Update().SetUpsert(true)
+		_, err := c.UpdateOne(context.Background(), selector, change, opts)
 		return err
 	})
 }
 
 func (self *Mdb) Insert(collection string, data ...interface{}) error {
-	return self.WithC(collection, func(c *mgo.Collection) error {
-		return c.Insert(data...)
+	return self.WithC(collection, func(c *mongo.Collection) error {
+		_, err := c.InsertMany(context.Background(), data)
+		return err
 	})
 }
 
-func (self *Mdb) FindId(collection string, id interface{}, result interface{}) error {
-	return self.WithC(collection, func(c *mgo.Collection) error {
-		return c.Find(bson.M{"_id": id}).One(result)
+func (self *Mdb) FindId(collection string, id string, result interface{}) error {
+	return self.WithC(collection, func(c *mongo.Collection) error {
+		idHex, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return err
+		}
+		// 构造查询
+		filter := bson.M{"_id": idHex}
+
+		err = c.FindOne(context.Background(), filter).Decode(result)
+		return err
 	})
 }
 
 func (self *Mdb) FindOne(collection string, query interface{}, result interface{}) error {
-	return self.WithC(collection, func(c *mgo.Collection) error {
-		return c.Find(query).One(result)
+	return self.WithC(collection, func(c *mongo.Collection) error {
+		return c.FindOne(context.Background(), query).Decode(result)
 	})
 }
 
-func (self *Mdb) RemoveId(collection string, id interface{}) error {
-	return self.WithC(collection, func(c *mgo.Collection) error {
-		return c.RemoveId(id)
+func (self *Mdb) RemoveId(collection string, id string) error {
+	return self.WithC(collection, func(c *mongo.Collection) error {
+		idHex, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return err
+		}
+		// 构造查询
+		filter := bson.M{"_id": idHex}
+
+		_, err = c.DeleteOne(context.Background(), filter)
+		return err
 	})
 }

@@ -2,21 +2,22 @@ package session
 
 import (
 	"bytes"
+	"cronsun/db/entries"
 	"encoding/gob"
 	"errors"
 	"net/http"
 
+	"cronsun"
+	"cronsun/conf"
+	"cronsun/log"
+	"cronsun/utils"
 	client "github.com/coreos/etcd/clientv3"
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
-	"github.com/shunfei/cronsun/utils"
 )
 
 func init() {
-	gob.Register(cronsun.Administrator)
-	gob.Register(cronsun.Developer)
-	gob.Register(cronsun.Reporter)
+	gob.Register(entries.Administrator)
+	gob.Register(entries.Developer)
+	gob.Register(entries.Reporter)
 }
 
 var Manager SessionManager

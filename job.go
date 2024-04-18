@@ -3,6 +3,7 @@ package cronsun
 import (
 	"bytes"
 	"context"
+	"cronsun/db/entries"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,10 +18,10 @@ import (
 
 	client "github.com/coreos/etcd/clientv3"
 
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
-	"github.com/shunfei/cronsun/node/cron"
-	"github.com/shunfei/cronsun/utils"
+	"cronsun/conf"
+	"cronsun/log"
+	"cronsun/node/cron"
+	"cronsun/utils"
 )
 
 const (
@@ -759,4 +760,39 @@ func (j *Job) CreateCmdAttr() (*syscall.SysProcAttr, error) {
 	}
 
 	return sysProcAttr, nil
+}
+
+func CreateJobLog(j *Job, t time.Time, rs string, success bool) {
+	et := time.Now()
+	j.Avg(t, et)
+
+	jl := entries.JobLog{
+		JobId:    j.ID,
+		JobGroup: j.Group,
+		Name:     j.Name,
+		User:     j.User,
+
+		Node:     j.runOn,
+		Hostname: j.hostname,
+		IP:       j.ip,
+
+		Command: j.Command,
+		Output:  rs,
+		Success: success,
+
+		BeginTime: t,
+		EndTime:   et,
+	}
+
+	if conf.Config.Web.LogCleaner.EveryMinute > 0 {
+		var expiration int
+		if j.LogExpiration > 0 {
+			expiration = j.LogExpiration
+		} else {
+			expiration = conf.Config.Web.LogCleaner.ExpirationDays
+		}
+		jl.Cleanup = jl.EndTime.Add(time.Duration(expiration) * time.Hour * 24)
+	}
+
+	entries.CreateJobLog(jl, log.DefaultLogger)
 }

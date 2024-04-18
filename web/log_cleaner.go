@@ -1,12 +1,10 @@
 package web
 
 import (
+	"cronsun/db/entries"
 	"time"
 
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/log"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"cronsun/log"
 )
 
 func RunLogCleaner(cleanPeriod, expiration time.Duration) (close chan struct{}) {
@@ -27,21 +25,7 @@ func RunLogCleaner(cleanPeriod, expiration time.Duration) (close chan struct{}) 
 }
 
 func cleanupLogs(expiration time.Duration) {
-	err := cronsun.GetDb().WithC(cronsun.Coll_JobLog, func(c *mgo.Collection) error {
-		_, err := c.RemoveAll(bson.M{"$or": []bson.M{
-			bson.M{"$and": []bson.M{
-				bson.M{"cleanup": bson.M{"$exists": true}},
-				bson.M{"cleanup": bson.M{"$lte": time.Now()}},
-			}},
-			bson.M{"$and": []bson.M{
-				bson.M{"cleanup": bson.M{"$exists": false}},
-				bson.M{"endTime": bson.M{"$lte": time.Now().Add(-expiration)}},
-			}},
-		}})
-
-		return err
-	})
-
+	err := entries.ClearJobLogs(expiration)
 	if err != nil {
 		log.Errorf("[Cleaner] Failed to remove expired logs: %s", err.Error())
 		return

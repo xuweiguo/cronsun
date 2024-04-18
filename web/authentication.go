@@ -1,27 +1,28 @@
 package web
 
 import (
+	"cronsun/db/entries"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"net/http"
 
 	"strings"
 
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
-	"github.com/shunfei/cronsun/utils"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"cronsun/conf"
+	"cronsun/log"
+	"cronsun/utils"
 )
 
 func checkAuthBasicData() error {
 	if conf.Config.Web.Auth.Enabled {
 		log.Infof("Authentication enabled.")
 
-		list, err := cronsun.GetAccounts(bson.M{"role": cronsun.Administrator, "status": cronsun.UserActived})
+		list, err := entries.GetAccounts(bson.M{"role": entries.Administrator, "status": entries.UserActived})
 		if err != nil {
 			return fmt.Errorf("Failed to check available Administrators: %s.", err.Error())
 		}
@@ -30,12 +31,12 @@ func checkAuthBasicData() error {
 			// create a default administrator with admin@admin.com/admin
 			// the email and password can be change from the user profile page.
 			salt := genSalt()
-			err = cronsun.CreateAccount(&cronsun.Account{
-				Role:         cronsun.Administrator,
+			err = entries.CreateAccount(&entries.Account{
+				Role:         entries.Administrator,
 				Email:        "admin@admin.com",
 				Salt:         salt,
 				Password:     encryptPassword("admin", salt),
-				Status:       cronsun.UserActived,
+				Status:       entries.UserActived,
 				Unchangeable: true,
 			})
 			if err != nil {
@@ -43,7 +44,7 @@ func checkAuthBasicData() error {
 			}
 		}
 
-		if err = cronsun.EnsureAccountIndex(); err != nil {
+		if err = entries.EnsureAccountIndex(); err != nil {
 			log.Warnf("Failed to make db index on the `user` collection: %s.", err.Error())
 		}
 	}
@@ -65,7 +66,7 @@ type Authentication struct{}
 
 func (this *Authentication) GetAuthSession(ctx *Context) {
 	var authInfo = &struct {
-		Role        cronsun.Role `json:"role,omitempty"`
+		Role        entries.Role `json:"role,omitempty"`
 		Email       string       `json:"email,omitempty"`
 		EnabledAuth bool         `json:"enabledAuth"`
 	}{}
@@ -79,7 +80,7 @@ func (this *Authentication) GetAuthSession(ctx *Context) {
 
 	if ctx.Session.Email != "" {
 		authInfo.Email = ctx.Session.Email
-		authInfo.Role = ctx.Session.Data["role"].(cronsun.Role)
+		authInfo.Role = ctx.Session.Data["role"].(entries.Role)
 		outJSONWithCode(ctx.W, http.StatusOK, authInfo)
 		return
 	}
@@ -93,9 +94,9 @@ func (this *Authentication) GetAuthSession(ctx *Context) {
 	password := getStringVal("password", ctx.R)
 	remember := getStringVal("remember", ctx.R) == "on"
 
-	u, err := cronsun.GetAccountByEmail(email)
+	u, err := entries.GetAccountByEmail(email)
 	if err != nil {
-		if err == mgo.ErrNotFound {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			outJSONWithCode(ctx.W, http.StatusNotFound, "User ["+email+"] not found.")
 		} else {
 			outJSONWithCode(ctx.W, http.StatusInternalServerError, err.Error())
@@ -108,7 +109,7 @@ func (this *Authentication) GetAuthSession(ctx *Context) {
 		return
 	}
 
-	if u.Status != cronsun.UserActived {
+	if u.Status != entries.UserActived {
 		outJSONWithCode(ctx.W, http.StatusForbidden, "Access deny.")
 		return
 	}
@@ -128,7 +129,7 @@ func (this *Authentication) GetAuthSession(ctx *Context) {
 	authInfo.Role = u.Role
 	authInfo.Email = u.Email
 
-	err = cronsun.UpdateAccount(bson.M{"email": email}, bson.M{"session": ctx.Session.ID()})
+	err = entries.UpdateAccount(bson.M{"email": email}, bson.M{"session": ctx.Session.ID()})
 	outJSONWithCode(ctx.W, http.StatusOK, authInfo)
 }
 
@@ -166,9 +167,9 @@ func (this *Authentication) SetPassword(ctx *Context) {
 	}
 
 	var email = ctx.Session.Email
-	u, err := cronsun.GetAccountByEmail(email)
+	u, err := entries.GetAccountByEmail(email)
 	if err != nil {
-		if err == mgo.ErrNotFound {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			outJSONWithCode(ctx.W, http.StatusNotFound, "User ["+email+"] not found.")
 		} else {
 			outJSONWithCode(ctx.W, http.StatusInternalServerError, err.Error())
@@ -187,8 +188,8 @@ func (this *Authentication) SetPassword(ctx *Context) {
 		"password": encryptPassword(sp.NewPassword, salt),
 	}
 
-	if err = cronsun.UpdateAccount(bson.M{"email": email}, update); err != nil {
-		if err == mgo.ErrNotFound {
+	if err = entries.UpdateAccount(bson.M{"email": email}, update); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			outJSONWithCode(ctx.W, http.StatusBadRequest, "User ["+email+"] not found.")
 		} else {
 			outJSONWithCode(ctx.W, http.StatusInternalServerError, err.Error())

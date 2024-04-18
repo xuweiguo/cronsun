@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cronsun/db/entries"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,9 +11,9 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/gorilla/mux"
 
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
+	"cronsun"
+	"cronsun/conf"
+	"cronsun/log"
 )
 
 type Job struct{}
@@ -218,7 +219,7 @@ func (j *Job) GetList(ctx *Context) {
 
 	type jobStatus struct {
 		*cronsun.Job
-		LatestStatus *cronsun.JobLatestLog `json:"latestStatus"`
+		LatestStatus *entries.JobLatestLog `json:"latestStatus"`
 		NextRunTime  string                `json:"nextRunTime"`
 	}
 
@@ -257,8 +258,7 @@ func (j *Job) GetList(ctx *Context) {
 		jobList = append(jobList, &jobStatus{Job: &job})
 		jobIds = append(jobIds, job.ID)
 	}
-
-	m, err := cronsun.GetJobLatestLogListByJobIds(jobIds)
+	m, err := entries.GetJobLatestLogListByJobIds(jobIds)
 	if err != nil {
 		log.Errorf("GetJobLatestLogListByJobIds error: %s", err.Error())
 	} else {

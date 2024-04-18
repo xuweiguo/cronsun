@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/db"
+	"cronsun/conf"
+	"cronsun/db"
 )
 
 var (
@@ -36,9 +36,11 @@ func Init(baseConfFile string, watchConfiFile bool) (err error) {
 	}
 
 	// init mongoDB
-	if mgoDB, err = db.NewMdb(conf.Config.Mgo); err != nil {
+	if mgoDB, err := db.NewMdb(conf.Config.Mgo); err != nil {
 		return fmt.Errorf("Connect to MongoDB %s failed: %s",
 			conf.Config.Mgo.Hosts, err)
+	} else {
+		db.SetDb(mgoDB)
 	}
 
 	_Uid = os.Getuid()

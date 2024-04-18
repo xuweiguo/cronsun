@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/shunfei/cronsun"
+	"cronsun"
 )
 
 type Jobs map[string]*cronsun.Job

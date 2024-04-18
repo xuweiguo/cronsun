@@ -1,9 +1,9 @@
 package node
 
 import (
+	"cronsun/db/entries"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"cronsun"
+	"cronsun/conf"
+	"cronsun/log"
+	"cronsun/node/cron"
+	"cronsun/utils"
 	client "github.com/coreos/etcd/clientv3"
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
-	"github.com/shunfei/cronsun/node/cron"
-	"github.com/shunfei/cronsun/utils"
 )
 
 // Node 执行 cron 命令服务的结构体
@@ -58,11 +58,13 @@ func NewNode(cfg *conf.Conf) (n *Node, err error) {
 	n = &Node{
 		Client: cronsun.DefalutClient,
 		Node: &cronsun.Node{
-			ID:       uuid,
-			PID:      strconv.Itoa(os.Getpid()),
-			PIDFile:  strings.TrimSpace(cfg.PIDFile),
-			IP:       ip.String(),
-			Hostname: hostname,
+			Data: &entries.Node{
+				ID:       uuid,
+				PID:      strconv.Itoa(os.Getpid()),
+				PIDFile:  strings.TrimSpace(cfg.PIDFile),
+				IP:       ip.String(),
+				Hostname: hostname,
+			},
 		},
 		Cron: cron.New(),
 
@@ -86,7 +88,7 @@ func (n *Node) Register() (err error) {
 	}
 
 	if pid != -1 {
-		return fmt.Errorf("node[%s] pid[%d] exist", n.Node.ID, pid)
+		return fmt.Errorf("node[%s] pid[%d] exist", n.Node.Data.ID, pid)
 	}
 
 	return n.set()
@@ -109,24 +111,24 @@ func (n *Node) set() error {
 }
 
 func (n *Node) writePIDFile() {
-	if len(n.PIDFile) == 0 {
+	if len(n.Data.PIDFile) == 0 {
 		return
 	}
 
 	filename := "cronnode_pid"
-	if !strings.HasSuffix(n.PIDFile, "/") {
-		filename = path.Base(n.PIDFile)
+	if !strings.HasSuffix(n.Data.PIDFile, "/") {
+		filename = path.Base(n.Data.PIDFile)
 	}
 
-	dir := path.Dir(n.PIDFile)
+	dir := path.Dir(n.Data.PIDFile)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		log.Errorf("Failed to write pid file: %s. you can change PIDFile config in base.json", err)
 		return
 	}
 
-	n.PIDFile = path.Join(dir, filename)
-	err = ioutil.WriteFile(n.PIDFile, []byte(n.PID), 0644)
+	n.Data.PIDFile = path.Join(dir, filename)
+	err = os.WriteFile(n.Data.PIDFile, []byte(n.Data.PID), 0644)
 	if err != nil {
 		log.Errorf("Failed to write pid file: %s. you can change PIDFile config in base.json", err)
 		return
@@ -134,11 +136,11 @@ func (n *Node) writePIDFile() {
 }
 
 func (n *Node) removePIDFile() {
-	if len(n.PIDFile) == 0 {
+	if len(n.Data.PIDFile) == 0 {
 		return
 	}
 
-	if err := os.Remove(n.PIDFile); err != nil {
+	if err := os.Remove(n.Data.PIDFile); err != nil {
 		log.Warnf("Failed to remove pid file: %s", err)
 	}
 }
@@ -188,7 +190,7 @@ func (n *Node) loadJobs() (err error) {
 	}
 
 	for _, job := range jobs {
-		job.Init(n.ID, n.Hostname, n.IP)
+		job.Init(n.Data.ID, n.Data.Hostname, n.Data.IP)
 		n.addJob(job, false)
 	}
 
@@ -198,11 +200,11 @@ func (n *Node) loadJobs() (err error) {
 func (n *Node) addJob(job *cronsun.Job, notice bool) {
 	n.link.addJob(job)
 
-	if job.IsRunOn(n.ID, n.groups) {
+	if job.IsRunOn(n.Data.ID, n.groups) {
 		n.jobs[job.ID] = job
 	}
 
-	cmds := job.Cmds(n.ID, n.groups)
+	cmds := job.Cmds(n.Data.ID, n.groups)
 	if len(cmds) == 0 {
 		return
 	}
@@ -224,7 +226,7 @@ func (n *Node) delJob(id string) {
 	delete(n.jobs, id)
 	n.link.delJob(job)
 
-	cmds := job.Cmds(n.ID, n.groups)
+	cmds := job.Cmds(n.Data.ID, n.groups)
 	if len(cmds) == 0 {
 		return
 	}
@@ -244,11 +246,11 @@ func (n *Node) modJob(job *cronsun.Job) {
 	}
 
 	n.link.delJob(oJob)
-	prevCmds := oJob.Cmds(n.ID, n.groups)
+	prevCmds := oJob.Cmds(n.Data.ID, n.groups)
 
 	job.Count = oJob.Count
 	*oJob = *job
-	cmds := oJob.Cmds(n.ID, n.groups)
+	cmds := oJob.Cmds(n.Data.ID, n.groups)
 
 	for id, cmd := range cmds {
 		n.modCmd(cmd, true)
@@ -320,7 +322,7 @@ func (n *Node) delGroup(id string) {
 			continue
 		}
 
-		cmds := job.Cmds(n.ID, n.groups)
+		cmds := job.Cmds(n.Data.ID, n.groups)
 		if len(cmds) == 0 {
 			continue
 		}
@@ -341,13 +343,13 @@ func (n *Node) modGroup(g *cronsun.Group) {
 	}
 
 	// 都包含/都不包含当前节点，对当前节点任务无影响
-	if (oGroup.Included(n.ID) && g.Included(n.ID)) || (!oGroup.Included(n.ID) && !g.Included(n.ID)) {
+	if (oGroup.Included(n.Data.ID) && g.Included(n.Data.ID)) || (!oGroup.Included(n.Data.ID) && !g.Included(n.Data.ID)) {
 		*oGroup = *g
 		return
 	}
 
 	// 增加当前节点
-	if !oGroup.Included(n.ID) && g.Included(n.ID) {
+	if !oGroup.Included(n.Data.ID) && g.Included(n.Data.ID) {
 		n.groupAddNode(g)
 		return
 	}
@@ -386,11 +388,11 @@ func (n *Node) groupAddNode(g *cronsun.Group) {
 				continue
 			}
 
-			job.Init(n.ID, n.Hostname, n.IP)
+			job.Init(n.Data.ID, n.Data.Hostname, n.Data.IP)
 			n.jobs[jid] = job
 		}
 
-		cmds := job.Cmds(n.ID, n.groups)
+		cmds := job.Cmds(n.Data.ID, n.groups)
 		for _, cmd := range cmds {
 			n.addCmd(cmd, true)
 		}
@@ -414,9 +416,9 @@ func (n *Node) groupRmNode(g, og *cronsun.Group) {
 		}
 
 		n.groups[og.ID] = og
-		prevCmds := job.Cmds(n.ID, n.groups)
+		prevCmds := job.Cmds(n.Data.ID, n.groups)
 		n.groups[g.ID] = g
-		cmds := job.Cmds(n.ID, n.groups)
+		cmds := job.Cmds(n.Data.ID, n.groups)
 
 		for id, cmd := range cmds {
 			n.addCmd(cmd, true)
@@ -451,7 +453,7 @@ func (n *Node) watchJobs() {
 					continue
 				}
 
-				job.Init(n.ID, n.Hostname, n.IP)
+				job.Init(n.Data.ID, n.Data.Hostname, n.Data.IP)
 				n.addJob(job, true)
 			case ev.IsModify():
 				job, err := cronsun.GetJobFromKv(ev.Kv.Key, ev.Kv.Value)
@@ -460,7 +462,7 @@ func (n *Node) watchJobs() {
 					continue
 				}
 
-				job.Init(n.ID, n.Hostname, n.IP)
+				job.Init(n.Data.ID, n.Data.Hostname, n.Data.IP)
 				n.modJob(job)
 			case ev.Type == client.EventTypeDelete:
 				n.delJob(cronsun.GetIDFromKey(string(ev.Kv.Key)))
@@ -472,7 +474,7 @@ func (n *Node) watchJobs() {
 }
 
 func (n *Node) watchExcutingProc() {
-	rch := cronsun.WatchProcs(n.ID)
+	rch := cronsun.WatchProcs(n.Data.ID)
 
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
@@ -536,12 +538,12 @@ func (n *Node) watchOnce() {
 		for _, ev := range wresp.Events {
 			switch {
 			case ev.IsCreate(), ev.IsModify():
-				if len(ev.Kv.Value) != 0 && string(ev.Kv.Value) != n.ID {
+				if len(ev.Kv.Value) != 0 && string(ev.Kv.Value) != n.Data.ID {
 					continue
 				}
 
 				job, ok := n.jobs[cronsun.GetIDFromKey(string(ev.Kv.Key))]
-				if !ok || !job.IsRunOn(n.ID, n.groups) {
+				if !ok || !job.IsRunOn(n.Data.ID, n.groups) {
 					continue
 				}
 

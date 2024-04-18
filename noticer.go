@@ -2,6 +2,7 @@ package cronsun
 
 import (
 	"bytes"
+	"cronsun/db/entries"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,8 +12,8 @@ import (
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/go-gomail/gomail"
 
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
+	"cronsun/conf"
+	"cronsun/log"
 )
 
 type Noticer interface {
@@ -178,7 +179,7 @@ func monitorNodes(n Noticer) {
 				id := GetIDFromKey(string(ev.Kv.Key))
 				log.Errorf("cronnode DELETE event detected, node UUID: %s", id)
 
-				node, err := GetNodesByID(id)
+				node, err := entries.GetNodesByID(id)
 				if err != nil {
 					log.Warnf("failed to fetch node[%s] from mongodb: %s", id, err.Error())
 					continue

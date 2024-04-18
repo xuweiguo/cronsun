@@ -1,33 +1,17 @@
 package web
 
 import (
+	"cronsun/db/entries"
+	"errors"
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"math"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-
-	"github.com/shunfei/cronsun"
 )
-
-func EnsureJobLogIndex() {
-	cronsun.GetDb().WithC(cronsun.Coll_JobLog, func(c *mgo.Collection) error {
-		c.EnsureIndex(mgo.Index{
-			Key: []string{"beginTime"},
-		})
-		c.EnsureIndex(mgo.Index{
-			Key: []string{"hostname"},
-		})
-		c.EnsureIndex(mgo.Index{
-			Key: []string{"ip"},
-		})
-
-		return nil
-	})
-}
 
 type JobLog struct{}
 
@@ -39,19 +23,19 @@ func (jl *JobLog) GetDetail(ctx *Context) {
 		return
 	}
 
-	if !bson.IsObjectIdHex(id) {
-		outJSONWithCode(ctx.W, http.StatusBadRequest, "invalid ObjectId.")
-		return
-	}
+	//objectId, err := primitive.ObjectIDFromHex(id)
+	//if err != nil {
+	//	outJSONWithCode(ctx.W, http.StatusBadRequest, "invalid ObjectId.")
+	//	return
+	//}
 
-	logDetail, err := cronsun.GetJobLogById(bson.ObjectIdHex(id))
+	logDetail, err := entries.GetJobLogById(id)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
-		if err == mgo.ErrNotFound {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			statusCode = http.StatusNotFound
-			err = nil
 		}
-		outJSONWithCode(ctx.W, statusCode, err)
+		outJSONWithCode(ctx.W, statusCode, err.Error())
 		return
 	}
 
@@ -64,9 +48,8 @@ func searchText(field string, keywords []string) (q []bson.M) {
 		if len(k) == 0 {
 			continue
 		}
-		q = append(q, bson.M{field: bson.M{"$regex": bson.RegEx{Pattern: k, Options: "i"}}})
+		q = append(q, bson.M{field: bson.M{"$regex": k, "$options": "i"}})
 	}
-
 	return q
 }
 
@@ -80,7 +63,7 @@ func (jl *JobLog) GetList(ctx *Context) {
 	page := getPage(ctx.R.FormValue("page"))
 	failedOnly := ctx.R.FormValue("failedOnly") == "true"
 	pageSize := getPageSize(ctx.R.FormValue("pageSize"))
-	orderBy := "-beginTime"
+	orderBy := bson.D{{Key: "beginTime", Value: -1}}
 
 	query := bson.M{}
 	var textSearch = make([]bson.M, 0, 2)
@@ -112,18 +95,18 @@ func (jl *JobLog) GetList(ctx *Context) {
 
 	var pager struct {
 		Total int               `json:"total"`
-		List  []*cronsun.JobLog `json:"list"`
+		List  []*entries.JobLog `json:"list"`
 	}
 	var err error
 	if ctx.R.FormValue("latest") == "true" {
-		var latestLogList []*cronsun.JobLatestLog
-		latestLogList, pager.Total, err = cronsun.GetJobLatestLogList(query, page, pageSize, orderBy)
+		var latestLogList []*entries.JobLatestLog
+		latestLogList, pager.Total, err = entries.GetJobLatestLogList(query, page, pageSize, orderBy)
 		for i := range latestLogList {
-			latestLogList[i].JobLog.Id = bson.ObjectIdHex(latestLogList[i].RefLogId)
+			latestLogList[i].JobLog.Id, _ = primitive.ObjectIDFromHex(latestLogList[i].RefLogId)
 			pager.List = append(pager.List, &latestLogList[i].JobLog)
 		}
 	} else {
-		pager.List, pager.Total, err = cronsun.GetJobLogList(query, page, pageSize, orderBy)
+		pager.List, pager.Total, err = entries.GetJobLogList(query, page, pageSize, orderBy)
 	}
 	if err != nil {
 		outJSONWithCode(ctx.W, http.StatusInternalServerError, err.Error())

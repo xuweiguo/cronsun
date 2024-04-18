@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"cronsun/db/entries"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shunfei/cronsun"
-	"github.com/shunfei/cronsun/conf"
-	"github.com/shunfei/cronsun/log"
-	"github.com/shunfei/cronsun/web/session"
+	"cronsun"
+	"cronsun/conf"
+	"cronsun/log"
+	"cronsun/web/session"
 )
 
 var sessManager session.SessionManager
@@ -70,14 +71,14 @@ func NewBaseHandler(f func(ctx *Context)) BaseHandler {
 	}
 }
 
-func NewAuthHandler(f func(ctx *Context), reqRole cronsun.Role) BaseHandler {
+func NewAuthHandler(f func(ctx *Context), reqRole entries.Role) BaseHandler {
 	return BaseHandler{
 		BeforeHandle: authHandler(true, reqRole),
 		Handle:       f,
 	}
 }
 
-func authHandler(needAuth bool, reqRole cronsun.Role) func(*Context) bool {
+func authHandler(needAuth bool, reqRole entries.Role) func(*Context) bool {
 	return func(ctx *Context) (abort bool) {
 		var err error
 		ctx.Session, err = sessManager.Get(ctx.W, ctx.R)
@@ -109,7 +110,7 @@ func authHandler(needAuth bool, reqRole cronsun.Role) func(*Context) bool {
 			outJSONWithCode(ctx.W, http.StatusUnauthorized, "role unknow.")
 			abort = true
 			return
-		} else if role, ok := r.(cronsun.Role); !ok {
+		} else if role, ok := r.(entries.Role); !ok {
 			outJSONWithCode(ctx.W, http.StatusUnauthorized, "role unknow.")
 			abort = true
 			return
