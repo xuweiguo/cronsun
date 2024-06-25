@@ -28,7 +28,7 @@ module.exports = {
       {
         test: /\.js$/,
         loader: 'babel-loader',
-        exclude: /node_modules/
+        // exclude: /node_modules/
       },
       {
         test: /\.(png|jpg|gif|svg|ttf|woff|woff2|eot)\w*/,
@@ -55,8 +55,9 @@ module.exports = {
   devServer: {
     proxy: {
       '/v1': {
-        target: 'http://127.0.0.1:7079',
-        secure: false
+        target: 'http://cs.611142.xyz',
+        secure: false,
+        changeOrigin:true // 是否需要跨域
       }
     },
     historyApiFallback: true,
@@ -66,25 +67,4 @@ module.exports = {
     hints: false
   },
   devtool: '#eval-source-map'
-}
-
-if (process.env.NODE_ENV === 'production') {
-  module.exports.devtool = '#source-map'
-  // http://vue-loader.vuejs.org/en/workflow/production.html
-  module.exports.plugins = (module.exports.plugins || []).concat([
-    new webpack.DefinePlugin({
-      'process.env': {
-        NODE_ENV: '"production"'
-      }
-    }),
-    new webpack.optimize.UglifyJsPlugin({
-      sourceMap: true,
-      compress: {
-        warnings: false
-      }
-    }),
-    new webpack.LoaderOptionsPlugin({
-      minimize: true
-    })
-  ])
 }
