@@ -3,7 +3,6 @@ package web
 import (
 	"cronsun/db/entries"
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -111,7 +110,7 @@ func initRouters() (s *http.Server, err error) {
 	h = NewAuthHandler(configHandler.Configuratios, entries.Reporter)
 	subrouter.Handle("/configurations", h).Methods("GET")
 
-	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/", newEmbeddedFileServer("", "index.html")))
+	r.PathPrefix("/ui/").Handler(staticFileHandler())
 	r.NotFoundHandler = NewBaseHandler(notFoundHandler)
 
 	s = &http.Server{
@@ -120,47 +119,12 @@ func initRouters() (s *http.Server, err error) {
 	return s, nil
 }
 
-type embeddedFileServer struct {
-	Prefix    string
-	IndexFile string
+func staticFileHandler() http.HandlerFunc {
+	fs := http.FS(webUi)
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.FileServer(fs).ServeHTTP(w, r)
+	}
 }
-
-func newEmbeddedFileServer(prefix, index string) *embeddedFileServer {
-	index = strings.TrimLeft(index, "/")
-	return &embeddedFileServer{Prefix: prefix, IndexFile: index}
-}
-
-func (s *embeddedFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fp := path.Clean(s.Prefix + r.URL.Path)
-	if fp == "." {
-		fp = ""
-	} else {
-		fp = strings.TrimLeft(fp, "/")
-	}
-
-	b, err := Asset(fp)
-	if err == nil {
-		w.Write(b)
-		return
-	}
-
-	if len(fp) > 0 {
-		fp += "/"
-	}
-	fp += s.IndexFile
-
-	// w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	// w.Header().Set("Expires", "0")
-
-	b, err = Asset(fp)
-	if err == nil {
-		w.Write(b)
-		return
-	}
-
-	_notFoundHandler(w, r)
-}
-
 func notFoundHandler(c *Context) {
 	_notFoundHandler(c.W, c.R)
 }
