@@ -3,7 +3,6 @@ package web
 import (
 	"cronsun/db/entries"
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -111,7 +110,7 @@ func initRouters() (s *http.Server, err error) {
 	h = NewAuthHandler(configHandler.Configuratios, entries.Reporter)
 	subrouter.Handle("/configurations", h).Methods("GET")
 
-	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/", newEmbeddedFileServer("", "index.html")))
+	r.PathPrefix("/ui/").Handler(http.StripPrefix("/ui/", disableDirectoryListing(http.FS(webUi))))
 	r.NotFoundHandler = NewBaseHandler(notFoundHandler)
 
 	s = &http.Server{
@@ -120,45 +119,42 @@ func initRouters() (s *http.Server, err error) {
 	return s, nil
 }
 
-type embeddedFileServer struct {
-	Prefix    string
-	IndexFile string
+func staticFileHandler() http.HandlerFunc {
+	fs := http.FS(webUi)
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.FileServer(fs).ServeHTTP(w, r)
+	}
 }
 
-func newEmbeddedFileServer(prefix, index string) *embeddedFileServer {
-	index = strings.TrimLeft(index, "/")
-	return &embeddedFileServer{Prefix: prefix, IndexFile: index}
-}
+func disableDirectoryListing(fs http.FileSystem) http.Handler {
 
-func (s *embeddedFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fp := path.Clean(s.Prefix + r.URL.Path)
-	if fp == "." {
-		fp = ""
-	} else {
-		fp = strings.TrimLeft(fp, "/")
-	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 获取请求的路径
+		upath := r.URL.Path
+		sFilePath := "/ui/dist/" + upath
+		if upath == "" {
+			sFilePath += "index.html" // 重定向根目录到index.html，根据实际情况调整
+		}
+		// 检查路径是否指向一个目录
+		info, err := fs.Open(sFilePath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer info.Close()
 
-	b, err := Asset(fp)
-	if err == nil {
-		w.Write(b)
-		return
-	}
+		stat, err := info.Stat()
+		if err != nil {
+			http.Error(w, "Not a file", http.StatusForbidden)
+			return
+		}
 
-	if len(fp) > 0 {
-		fp += "/"
-	}
-	fp += s.IndexFile
-
-	// w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	// w.Header().Set("Expires", "0")
-
-	b, err = Asset(fp)
-	if err == nil {
-		w.Write(b)
-		return
-	}
-
-	_notFoundHandler(w, r)
+		if stat.IsDir() {
+			http.NotFound(w, r) // 或者重定向到某个默认页面
+			return
+		}
+		http.ServeContent(w, r, stat.Name(), stat.ModTime(), info)
+	})
 }
 
 func notFoundHandler(c *Context) {
