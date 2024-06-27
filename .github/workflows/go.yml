@@ -25,7 +25,7 @@ jobs:
       run: go mod download
       
     - name: Build-web
-      run: go build -v bin/web
+      run: go build -o cronsunweb ./bin/web
 
     - name: Build-node
-      run: go build -v bin/node
+      run: go build -o cronsunnode ./bin/node
