@@ -223,7 +223,6 @@ func (this *Administrator) UpdateAccount(ctx *Context) {
 		return
 	}
 
-	this.removeSession(account.Email)
 	if ctx.Session.Email == originAccount.Email {
 		ctx.Session.Email = ""
 		delete(ctx.Session.Data, "role")
@@ -232,7 +231,7 @@ func (this *Administrator) UpdateAccount(ctx *Context) {
 		outJSONWithCode(ctx.W, http.StatusUnauthorized, nil)
 		return
 	}
-
+	this.removeSession(account.Email)
 	outJSONWithCode(ctx.W, http.StatusOK, nil)
 }
 

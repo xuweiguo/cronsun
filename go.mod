@@ -1,6 +1,6 @@
 module cronsun
 
-go 1.22.2
+go 1.25.0
 
 require (
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292

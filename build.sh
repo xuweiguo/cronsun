@@ -8,7 +8,7 @@ function check_code() {
 	fi
 }
 
-out="dist"
+out="runtime"
 echo "build file to ./$out"
 
 mkdir -p "$out/conf"
@@ -17,8 +17,7 @@ go build -o ./$out/cronnode ./bin/node/server.go
 check_code
 go build -o ./$out/cronweb ./bin/web/server.go
 check_code
-go build -o ./$out/csctl ./bin/csctl/cmd.go
-check_code
+
 
 sources=`find ./conf/files -name "*.json.sample"`
 check_code

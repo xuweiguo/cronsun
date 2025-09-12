@@ -47,15 +47,14 @@ module.exports = {
   resolve: {
     alias: {
       'vue$': 'vue/dist/vue.common.js',
-      'semantic$': 'semantic-ui/dist/semantic.min.js',
-      'semanticcss$': 'semantic-ui/dist/semantic.min.css',
       'charts$': 'chart.js/dist/Chart.min.js'
     }
   },
   devServer: {
+    port: 7079,
     proxy: {
       '/v1': {
-        target: 'http://cs.611142.xyz',
+        target: 'http://192.168.161.130:7079',
         secure: false,
         changeOrigin:true // 是否需要跨域
       }

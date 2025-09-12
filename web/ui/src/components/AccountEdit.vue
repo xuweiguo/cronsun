@@ -30,6 +30,10 @@
         </div>
       </div>
     </div>
+    <div class="field">
+      <label>{{$L('job group')}}</label>
+      <Dropdown :title="$L('select a group')" v-bind:items="groups" v-bind:selected="account.group" v-on:change="changeGroup" v-bind:multiple="true"></Dropdown>
+    </div>
     <div v-show="action === 'UPDATE'">
       <div class="inline fields" ref="status">
         <label>{{$L('status')}}</label>
@@ -54,19 +58,24 @@
 </template>
 
 <script>
+import Dropdown from "./basic/Dropdown.vue";
+
 export default {
   name: 'account-edit',
+  components: {Dropdown},
 
   data: function(){
     return {
       loading: true,
       action: '',
+      groups: [],
       account: {
         originEmail: '',
         email: '',
         password: '',
         role: 1,
-        status: 1
+        status: 1,
+        group: []
       }
     }
   },
@@ -87,6 +96,7 @@ export default {
             password: '',
             role: resp.role,
             status: resp.status,
+            group: resp.group || []
           }
         }).
         onfailed((msg)=>{vm.$bus.$emit('error', msg)}).
@@ -127,7 +137,10 @@ export default {
         onfailed((msg)=>{vm.$bus.$emit('error', msg)}).
         onend(()=>{vm.loading = false}).
         do();
-    }
+    },
+    changeGroup: function(val, text){
+      this.account.group = val;
+    },
   }
 }
 </script>
