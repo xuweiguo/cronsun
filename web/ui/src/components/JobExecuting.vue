@@ -1,53 +1,59 @@
-<style scope>
-  .clearfix:after {content:""; clear:both; display:table;}
-  .kill-proc-btn { color:red;cursor: pointer;}
+<style scoped>
+.job-executing-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
 </style>
+
 <template>
   <div>
-    <div class="clearfix" style="margin-bottom: 20px;">
-      <router-link class="ui left floated button" to="/job">{{$L('view job list')}}</router-link>
-      <button class="ui left floated icon button" v-on:click="refresh"><i class="refresh icon"></i></button>
-      <router-link class="ui right floated primary button" to="/job/create"><i class="add to calendar icon"></i> {{$L('create job')}}</router-link>
+    <div class="job-executing-toolbar">
+      <div>
+        <el-button type="primary" icon="el-icon-s-operation" @click="$router.push('/job')">
+          {{$L('view job list')}}
+        </el-button>
+        <el-button icon="el-icon-refresh" circle @click="refresh"></el-button>
+      </div>
+      <el-button type="primary" icon="el-icon-plus" @click="$router.push('/job/create')">
+        {{$L('create job')}}
+      </el-button>
     </div>
-    <form class="ui form" v-bind:class="{loading:loading}" v-on:submit.prevent>
-      <div class="field">
-        <label>{{$L('job ID')}}</label>
-        <input type="text" ref="ids" v-model:value="ids" :placeholder="$L('multiple IDs can separated by commas')"/>
-      </div>
-      <div class="field">
-        <label>{{$L('select groups')}}</label>
-        <Dropdown :title="$L('select groups')" v-bind:items="prefetchs.groups" v-on:change="changeGroup" :selected="groups" :multiple="true"/>
-      </div>
-      <div class="field">
-        <label>{{$L('select nodes')}}</label>
-        <Dropdown :title="$L('select nodes')" v-bind:items="$store.getters.dropdownNodes" v-on:change="changeNodes" :selected="nodes" :multiple="true"/>
-      </div>
-      <div class="field">
-        <button class="fluid ui button" type="button" v-on:click="submit">{{$L('submit query')}}</button>
-      </div>
-    </form>
-    <table class="ui hover blue table" v-if="executings.length > 0">
-      <thead>
-        <tr>
-          <th class="center aligned">{{$L('job name')}}</th>
-          <th width="200px" class="center aligned">{{$L('job group')}}</th>
-          <th class="center aligned">{{$L('node')}}</th>
-          <th class="center aligned">{{$L('process ID')}}</th>
-          <th class="center aligned">{{$L('starting time')}}</th>
-          <th class="center aligned">{{$L('operation')}}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(proc, index) in executings">
-          <td class="center aligned"><router-link :to="'/job/edit/'+proc.group+'/'+proc.jobId">{{proc.jobName}}</router-link></td>
-          <td class="center aligned">{{proc.group}}</td>
-          <td class="center aligned">{{$store.getters.hostshows(proc.nodeId)}}</td>
-          <td class="center aligned">{{proc.id}}</td>
-          <td class="center aligned">{{proc.time}}</td>
-          <td class="center aligned"><a class="kill-proc-btn" v-on:click="killProc(proc, index)">{{$L('kill process')}}</a></td>
-        </tr>
-      </tbody>
-    </table>
+    <el-card shadow="never" :body-style="{padding: '16px'}">
+      <el-form label-position="top" v-loading="loading">
+        <el-form-item :label="$L('job ID')">
+          <el-input type="text" v-model="ids" :placeholder="$L('multiple IDs can separated by commas')"/>
+        </el-form-item>
+        <el-form-item :label="$L('select groups')">
+          <Dropdown :title="$L('select groups')" :items="prefetchs.groups" @change="changeGroup" :selected="groups" :multiple="true"/>
+        </el-form-item>
+        <el-form-item :label="$L('select nodes')">
+          <Dropdown :title="$L('select nodes')" :items="$store.getters.dropdownNodes" @change="changeNodes" :selected="nodes" :multiple="true"/>
+        </el-form-item>
+        <div style="text-align:right;">
+          <el-button type="primary" @click="submit">{{$L('submit query')}} </el-button>
+        </div>
+      </el-form>
+    </el-card>
+    <el-table :data="executings" border stripe style="margin-top:16px;" :empty-text="$L('no data')">
+      <el-table-column :label="$L('job name')" min-width="200">
+        <template slot-scope="{row}">
+          <router-link :to="'/job/edit/'+row.group+'/'+row.jobId">{{row.jobName}}</router-link>
+        </template>
+      </el-table-column>
+      <el-table-column prop="group" :label="$L('job group')" width="180"></el-table-column>
+      <el-table-column :label="$L('node')" min-width="180">
+        <template slot-scope="{row}">{{$store.getters.hostshows(row.nodeId)}}</template>
+      </el-table-column>
+      <el-table-column prop="id" :label="$L('process ID')" width="160"></el-table-column>
+      <el-table-column prop="time" :label="$L('starting time')" width="200"></el-table-column>
+      <el-table-column :label="$L('operation')" width="160">
+        <template slot-scope="{row, $index}">
+          <el-button type="danger" plain size="mini" @click="killProc(row, $index)">{{$L('kill process')}}</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
 </template>
 
@@ -67,16 +73,15 @@ export default {
       executings: []
     }
   },
-  
+
   mounted(){
-    var vm = this;
     this.groups = split(this.$route.query.groups, ',');
     this.nodes = split(this.$route.query.nodes, ',');
     this.ids = this.$route.query.ids || '';
 
     this.$rest.GET('job/groups').onsucceed(200, (resp)=>{
       !resp.includes('default') && resp.unshift('default');
-      vm.prefetchs.groups = resp;
+      this.prefetchs.groups = resp;
       this.fetchList(this.buildQuery());
     }).do();
   },
@@ -91,12 +96,12 @@ export default {
   },
 
   methods: {
-    changeGroup(val, text){
-      this.groups = split(val, ',');
+    changeGroup(val){
+      this.groups = Array.isArray(val) ? val : split(val, ',');
     },
 
     changeNodes(val){
-      this.nodes = split(val, ',');
+      this.nodes = Array.isArray(val) ? val : split(val, ',');
     },
 
     submit(){
@@ -104,17 +109,21 @@ export default {
     },
 
     killProc(proc, index) {
-      if (!confirm(this.$L('whether to kill the process'))) return;
-      var vm = this
-      var params = []
-      params.push('node='+proc.nodeId)
-      params.push('group='+proc.group)
-      params.push('job='+proc.jobId)
-      params.push('pid='+proc.id)
-      this.$rest.DELETE('job/executing?' + params.join('&'))
-      .onsucceed(200, (resp) => vm.$bus.$emit('success', vm.$L('command has been sent to the node')))
-      .onfailed((resp) => vm.$bus.$emit('error', resp))
-      .do();
+      this.$confirm(this.$L('whether to kill the process'), this.$L('operation'), {
+        confirmButtonText: this.$L('confirm'),
+        cancelButtonText: this.$L('cancel'),
+        type: 'warning'
+      }).then(() => {
+        var params = []
+        params.push('node='+proc.nodeId)
+        params.push('group='+proc.group)
+        params.push('job='+proc.jobId)
+        params.push('pid='+proc.id)
+        this.$rest.DELETE('job/executing?' + params.join('&'))
+          .onsucceed(200, () => this.$bus.$emit('success', this.$L('command has been sent to the node')))
+          .onfailed((resp) => this.$bus.$emit('error', resp))
+          .do();
+      }).catch(()=>{});
     },
 
     buildQuery(){
@@ -126,16 +135,12 @@ export default {
     },
 
     fetchList(query){
-      var vm = this;
       this.loading = true;
       this.$rest.GET('job/executing?'+query).
       onsucceed(200, (resp)=>{
-        vm.executings = resp;
-        vm.$nextTick(()=>{
-          $(vm.$el).find('table .ui.dropdown').dropdown();
-        });
+        this.executings = resp;
       }).
-      onend(()=>{vm.loading = false}).
+      onend(()=>{this.loading = false}).
       do();
     },
 

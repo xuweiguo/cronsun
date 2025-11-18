@@ -1,15 +1,19 @@
 <template>
-  <div class="ui modal">
-    <i class="close icon"></i>
-    <div class="header">{{$L('executing job: {job}', jobName)}}</div>
-    <div class="content">
-      <Dropdown :title="$L('node')" :items="nodes" v-on:change="changeNode" style="width:100%"></Dropdown>
-    </div>
-    <div class="actions">
-      <div class="ui deny button">{{$L('cancel')}}</div>
-      <div class="ui positive right labeled icon button">{{$L('execute now')}} <i class="checkmark icon"></i></div>
-    </div>
-  </div>
+  <el-dialog
+    :title="$L('executing job: {job}', jobName)"
+    :visible.sync="visible"
+    width="480px"
+    :close-on-click-modal="false">
+    <Dropdown
+      :title="$L('node')"
+      :items="nodes"
+      v-on:change="changeNode"
+      style="width:100%"/>
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="hide">{{$L('cancel')}}</el-button>
+      <el-button type="primary" :loading="loading" @click="submit">{{$L('execute now')}}</el-button>
+    </span>
+  </el-dialog>
 </template>
 
 <script>
@@ -24,7 +28,8 @@ export default {
       jobName: '',
       nodes: [],
       selectedNode: '',
-      loading: false
+      loading: false,
+      visible: false
     }
   },
 
@@ -33,15 +38,13 @@ export default {
       this.jobName = jobName;
       this.jobGroup = jobGroup;
       this.jobId = jobId;
+      this.visible = true;
       this.fetchJobNodes();
-      $(this.$el).modal({
-        closable: false,
-        onApprove: this.submit
-      }).modal('show');
     },
 
     hide(){
-      $(this.$el).modal('hide');
+      this.visible = false;
+      this.loading = false;
     },
 
     fetchJobNodes(){
@@ -64,6 +67,7 @@ export default {
     },
 
     submit(){
+      if (this.loading) return;
       var vm = this;
       this.loading = true;
       var node = this.selectedNode === 'all nodes' ? '' : this.selectedNode;

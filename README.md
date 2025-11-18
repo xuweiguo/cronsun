@@ -62,6 +62,24 @@ We encourage you to try it, it's easy to use, see how it works for you. We belie
 
 ## Getting started
 
+### Project layout
+
+The repository now follows a [mix-go](https://github.com/mix-go) inspired
+scaffold so that each executable lives under `cmd/` and the reusable boot logic
+stays in `internal/`. The most relevant directories are:
+
+```
+cmd/
+├── cronnode   # node service entrypoint
+└── cronweb    # web service entrypoint
+internal/
+└── app/bootstrap  # shared bootstrap helpers (logger, service lifecycle)
+```
+
+This layout separates infrastructure code from business logic, making it easier
+to plug additional binaries into the same project structure while keeping
+mix-go's conventions.
+
 ### Setup / installation
 
 Install from binary [latest release](https://github.com/shunfei/cronsun/releases/latest)
@@ -74,7 +92,7 @@ export GO111MODULE=on
 go get -u github.com/shunfei/cronsun
 cd $GOPATH/src/github.com/shunfei/cronsun
 go mod vendor
-sh build.sh
+make build APP=cronweb   # or APP=cronnode
 ```
 
 ### Run

@@ -9,29 +9,22 @@
 
 <template>
   <div>
-    <form id="loginForm" class="ui form" v-on:submit.prevent="onSubmit">
-      <div class="field">
-        <label>{{$L('email')}}</label>
-        <input type="text" v-model="email" placeholder:="$L('email')">
-      </div>
-      <div class="field">
-        <label>{{$L('password')}}</label>
-        <input type="password" v-model="password" placeholder:="$L('password')">
-      </div>
-      <div class="field" ref="remember">
-        <div class="ui checkbox">
-          <input type="checkbox" v-model="remember" tabindex="0" class="hidden">
-          <label>{{$L('remember me')}}</label>
-        </div>
-      </div>
-      <button class="ui button" type="submit">{{$L('login')}}</button>
-    </form>
+    <el-form id="loginForm" label-position="top" @submit.native.prevent="onSubmit">
+      <el-form-item :label="$L('email')">
+        <el-input v-model="email" :placeholder="$L('email')"/>
+      </el-form-item>
+      <el-form-item :label="$L('password')">
+        <el-input v-model="password" type="password" :placeholder="$L('password')"/>
+      </el-form-item>
+      <el-form-item>
+        <el-checkbox v-model="remember">{{$L('remember me')}}</el-checkbox>
+      </el-form-item>
+      <el-button type="primary" @click="onSubmit">{{$L('login')}}</el-button>
+    </el-form>
   </div>
 </template>
 
 <script>
-import Vue from 'vue';
-
 export default {
   name: 'login',
 
@@ -39,23 +32,13 @@ export default {
     return {
       email: '',
       password: '',
-      remember: ''
+      remember: false
     }
-  },
-
-  mounted: function(){
-    var vm = this;
-    $(this.$refs.remember).find('.checkbox').checkbox({
-      onChange: function(){
-        vm.remember = $(vm.$refs.remember).find('input[type=checkbox]:checked').val();
-      }
-    });
   },
 
   methods: {
     onSubmit(){
       var vm = this;
-
       this.$rest.GET('session?email='+this.email+'&password='+this.password+'&remember='+this.remember).
       onsucceed(200, (resp)=>{
         vm.$store.commit('setEmail', resp.email);

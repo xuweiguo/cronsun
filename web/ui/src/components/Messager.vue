@@ -1,12 +1,31 @@
-<style scope>
-  .show {}
+<style scoped>
+.message-container {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  width: 360px;
+  z-index: 3000;
+}
+
+.message-item {
+  margin-bottom: 12px;
+}
 </style>
+
 <template>
-  <div class="ui sticky fixed" style="top: 80px; right: 20px; width: 400px;">
-    <div v-for="(m, index) in queue" :key="m.id" class="ui floating message transition animate fly left" :class="[m.type, m.animation, m.visiable]">
-      <i class="close icon" v-on:click="closeMessage(m.id)"></i>
-      <div class="header">{{m.content}}</div>
-    </div>
+  <div class="message-container">
+    <transition-group name="el-fade-in-linear" tag="div">
+      <el-alert
+        v-for="item in queue"
+        :key="item.id"
+        :title="item.content"
+        :type="item.type"
+        show-icon
+        closable
+        class="message-item"
+        @close="closeMessage(item.id)">
+      </el-alert>
+    </transition-group>
   </div>
 </template>
 
@@ -18,16 +37,14 @@ export default {
       queue: []
     }
   },
-  
+
   methods: {
     showMessage(type, content){
       var id = Math.random().toString();
       this.queue.push({
         id: id,
         content: content,
-        type: type,
-        animation: 'in',
-        visiable: 'visiable'
+        type: type
       });
 
       var vm = this;
@@ -37,24 +54,13 @@ export default {
     },
 
     closeMessage(id){
-      var vm = this;
-      for (var i in vm.queue) {
-        if (vm.queue[i].id === id) {
-          vm.queue[i].animation = 'out';
-          setTimeout(()=>{
-            for (var i in vm.queue) {
-              if (vm.queue[i].id === id) {
-                vm.queue.splice(i, 1);
-                return;
-              }
-            }
-          }, 600);
-          break;
-        }
+      var index = this.queue.findIndex((m) => m.id === id);
+      if (index !== -1) {
+        this.queue.splice(index, 1);
       }
     }
   },
-  
+
   mounted(){
     var vm = this;
     this.$bus.$on('error', (content)=>{

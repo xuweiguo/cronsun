@@ -1,8 +1,7 @@
 import zhCN from './languages/zh-CN';
 import en from './languages/en';
 
-import jQuery from 'jquery';
-require('jquery.cookie')
+import Cookies from 'js-cookie';
 
 var languages = {
   // key is lowercase
@@ -16,8 +15,8 @@ var supported = [
 ]
 
 var language;
-var locale = jQuery.cookie('locale') || navigator.language || 'en';
-locale = locale.indexOf('en') === -1 ? 'zh-CN' : 'en';
+const browserLocale = (navigator.language || 'en').toLowerCase();
+var locale = Cookies.get('locale') || (browserLocale.indexOf('zh') !== -1 ? 'zh-CN' : 'en');
 setLocale(locale);
 
 function setLocale(loc) {
@@ -25,6 +24,7 @@ function setLocale(loc) {
   if (languages[loc2]) {
     locale = loc
     language = languages[loc2]
+    Cookies.set('locale', loc)
   }
 }
 

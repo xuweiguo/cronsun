@@ -1,9 +1,8 @@
-window.$ = window.jQuery = require('jquery');
-require('fomantic-ui');
-require('fomantic-ui/dist/semantic.min.css');
 import store from './vuex/store';
 
 import Vue from 'vue';
+import ElementUI from 'element-ui';
+import 'element-ui/lib/theme-chalk/index.css';
 import Lang from './i18n/language';
 // global restful client
 import Rest from './libraries/rest-client.js';
@@ -24,6 +23,8 @@ import Profile from './components/Profile.vue';
 import Login from './components/Login.vue';
 
 Vue.config.debug = true;
+
+Vue.use(ElementUI);
 
 Vue.use((Vue) => {
   Vue.prototype.$L = Lang.L

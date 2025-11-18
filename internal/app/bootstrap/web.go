@@ -1,73 +1,54 @@
-package main
+package bootstrap
 
 import (
-	"cronsun/db/entries"
-	"flag"
-	slog "log"
 	"net"
 	"time"
 
 	"github.com/cockroachdb/cmux"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"cronsun"
 	"cronsun/conf"
+	"cronsun/db/entries"
 	"cronsun/event"
 	"cronsun/log"
 	"cronsun/web"
 )
 
-var (
-	level    = flag.Int("l", 0, "log level, -1:debug, 0:info, 1:warn, 2:error")
-	confFile = flag.String("conf", "./conf/base.json", "config file path")
-	network  = flag.String("network", "0.0.0.0", "network protocol of listen address: ipv4/ipv6, or empty use both")
-)
-
-func main() {
-	flag.Parse()
-
-	lcf := zap.NewDevelopmentConfig()
-	lcf.Level.SetLevel(zapcore.Level(*level))
-	lcf.Development = false
-	logger, err := lcf.Build(zap.AddCallerSkip(1))
-	if err != nil {
-		slog.Fatalln("new log err:", err.Error())
+func RunWeb(confFile, network string, level int) error {
+	if err := initLogger(level); err != nil {
+		return err
 	}
-	log.SetLogger(logger.Sugar())
 
-	if err = cronsun.Init(*confFile, true); err != nil {
+	if err := cronsun.Init(confFile, true); err != nil {
 		log.Errorf(err.Error())
-		return
+		return err
 	}
 	entries.EnsureJobLogIndex()
 
-	l, err := net.Listen(checkNetworkProtocol(*network), conf.Config.Web.BindAddr)
-	log.Debugf("listen %s:%s", checkNetworkProtocol(*network), conf.Config.Web.BindAddr)
+	listener, err := net.Listen(checkNetworkProtocol(network), conf.Config.Web.BindAddr)
+	log.Debugf("listen %s:%s", checkNetworkProtocol(network), conf.Config.Web.BindAddr)
 	if err != nil {
 		log.Errorf(err.Error())
-		return
+		return err
 	}
 
-	// Create a cmux.
-	m := cmux.New(l)
-	httpL := m.Match(cmux.HTTP1Fast())
+	mux := cmux.New(listener)
+	httpListener := mux.Match(cmux.HTTP1Fast())
 	httpServer, err := web.InitServer()
 	if err != nil {
 		log.Errorf(err.Error())
-		return
+		return err
 	}
 
 	if conf.Config.Mail.Enable {
 		var noticer cronsun.Noticer
-
 		if len(conf.Config.Mail.HttpAPI) > 0 {
 			noticer = &cronsun.HttpAPI{}
 		} else {
 			mailer, err := cronsun.NewMail(30 * time.Second)
 			if err != nil {
 				log.Errorf(err.Error())
-				return
+				return err
 			}
 			noticer = mailer
 		}
@@ -84,21 +65,19 @@ func main() {
 	}
 
 	go func() {
-		err := httpServer.Serve(httpL)
-		if err != nil {
+		if err := httpServer.Serve(httpListener); err != nil {
 			panic(err.Error())
 		}
 	}()
 
-	go m.Serve()
+	go mux.Serve()
 
 	log.Infof("cronsun web server started on %s, Ctrl+C or send kill sign to exit", conf.Config.Web.BindAddr)
-	// 注册退出事件
 	event.On(event.EXIT, conf.Exit, stopCleaner)
-	// 监听退出信号
 	event.Wait()
 	event.Emit(event.EXIT, nil)
 	log.Infof("exit success")
+	return nil
 }
 
 func checkNetworkProtocol(p string) string {
@@ -108,6 +87,5 @@ func checkNetworkProtocol(p string) string {
 	case "ipv6":
 		return "tcp6"
 	}
-
 	return "tcp"
 }
