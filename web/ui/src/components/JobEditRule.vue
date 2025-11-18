@@ -1,24 +1,57 @@
+<style scoped>
+.job-rule {
+  margin-bottom: 16px;
+}
+
+.job-rule .layui-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.job-rule .layui-form-item {
+  margin-bottom: 16px;
+}
+
+.rule-help {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+</style>
+
 <template>
-<div style="margin-bottom:20px;">
-  <h4 class="ui horizontal divider header">{{$L('timer')}} - {{index}} <a href="#" v-on:click.prevent="remove">{{$L('delete')}}</a></h4>
-  <div class="two fields">
-    <div class="field">
-      <div class="ui icon input">
-        <input type="text" v-bind:value="rule.timer" v-on:input="change('timer', $event.target.value)" :placeholder="$L('0 * * * * *, rules see the 「?」on the right')"/>
-        <i ref="ruletip" class="large help circle link icon" data-position="top right" :data-html="$L('<sec> <min> <hr> <day> <month> <week>, rules is same with Cron')" data-variation="wide"></i>
+<div class="layui-card job-rule">
+  <div class="layui-card-header">
+    <span>{{$L('timer')}} - {{index}}</span>
+    <button class="layui-btn layui-btn-danger layui-btn-xs" @click.prevent="remove">{{$L('delete')}}</button>
+  </div>
+  <div class="layui-card-body">
+    <div class="layui-form-item">
+      <label class="layui-form-label">{{$L('cron expression')}}</label>
+      <div class="layui-input-block">
+        <input type="text" class="layui-input" :value="rule.timer" @input="change('timer', $event.target.value)" :placeholder="$L('0 * * * * *, rules see the 「?」on the right')"/>
+        <div class="rule-help">{{$L('<sec> <min> <hr> <day> <month> <week>, rules is same with Cron')}}</div>
       </div>
     </div>
-    <div class="field">
-      <Dropdown :title="$L('node group')" v-bind:items="nodeGroups" v-bind:selected="rule.gids" multiple="true" v-on:change="changeNodeGroups($event)"></Dropdown>
+    <div class="layui-form-item">
+      <label class="layui-form-label">{{$L('node group')}}</label>
+      <div class="layui-input-block">
+        <Dropdown :title="$L('node group')" :items="nodeGroups" :selected="rule.gids" multiple="true" @change="changeNodeGroups" />
+      </div>
     </div>
-  </div>
-  <div class="field">
-    <label>{{$L('and please running on those nodes')}}</label>
-    <Dropdown :title="$L('select nodes')" v-bind:items="activityNodes" v-bind:selected="rule.nids" v-on:change="changeIncludeNodes($event)" multiple="true"></Dropdown>
-  </div>
-  <div class="field">
-    <label>{{$L('do not running on those nodes')}}</label>
-    <Dropdown :title="$L('select nodes')" v-bind:items="activityNodes" v-bind:selected="rule.exclude_nids" v-on:change="changeExcludeNodes($event)" multiple="true"></Dropdown>
+    <div class="layui-form-item">
+      <label class="layui-form-label">{{$L('and please running on those nodes')}}</label>
+      <div class="layui-input-block">
+        <Dropdown :title="$L('select nodes')" :items="activityNodes" :selected="rule.nids" multiple="true" @change="changeIncludeNodes" />
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">{{$L('do not running on those nodes')}}</label>
+      <div class="layui-input-block">
+        <Dropdown :title="$L('select nodes')" :items="activityNodes" :selected="rule.exclude_nids" multiple="true" @change="changeExcludeNodes" />
+      </div>
+    </div>
   </div>
 </div>
 </template>
@@ -47,8 +80,6 @@ export default {
       }
       vm.nodeGroups = groups;
     }).do();
-
-    $(this.$refs.ruletip).popup();
   },
 
   methods: {
@@ -59,15 +90,15 @@ export default {
       this.$emit('change', this.index, key, val);
     },
     changeNodeGroups: function(val){
-      var gids = val.trim().length === 0 ? [] : val.split(',');
+      var gids = Array.isArray(val) ? val : (val && val.trim().length === 0 ? [] : (val || '').split(','));
       this.change('gids', gids);
     },
     changeIncludeNodes: function(val){
-      var nids = val.trim().length === 0 ? [] : val.split(',');
+      var nids = Array.isArray(val) ? val : (val && val.trim().length === 0 ? [] : (val || '').split(','));
       this.change('nids', nids);
     },
     changeExcludeNodes: function(val){
-      var exclude_nids = val.trim().length === 0 ? [] : val.split(',');
+      var exclude_nids = Array.isArray(val) ? val : (val && val.trim().length === 0 ? [] : (val || '').split(','));
       this.change('exclude_nids', exclude_nids);
     }
   },

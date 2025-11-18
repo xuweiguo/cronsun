@@ -1,103 +1,165 @@
+<style scoped>
+.job-edit-form {
+  background: #fff;
+  padding: 24px;
+  border-radius: 4px;
+  position: relative;
+}
+
+.job-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  z-index: 2;
+}
+
+.job-edit-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.job-edit-header h3 {
+  margin: 0;
+}
+
+.job-toggle-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.job-type-options,
+.job-form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.job-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.job-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.job-alert {
+  padding: 12px;
+  border: 1px dashed #f8d7da;
+  background: #fff5f5;
+  color: #d93025;
+  margin-bottom: 16px;
+}
+</style>
+
 <template>
-  <form class="ui form" v-bind:class="{loading:loading}" v-on:submit.prevent>
-    <h3 class="ui header">{{$L(action == 'CREATE' ? 'create job' : 'update job')}}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-      <em v-if="job.id">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ID# {{job.id}}</em>
-      <div class="ui toggle checkbox" ref="pause">
-        <input type="checkbox" class="hidden" v-bind:checked="!job.pause">
-        <label v-bind:style="{color: (job.pause?'red':'green')+' !important'}">{{$L(job.pause ? 'pause' : 'open')}}</label>
-      </div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-      <div class="ui toggle checkbox" ref="fail_notify" v-if="$appConfig.alarm">
-        <input type="checkbox" class="hidden" v-bind:checked="job.fail_notify">
-        <label>{{$L(job.fail_notify ? 'warning on' : 'warning off')}}</label>
-      </div>
-    </h3>
-    <div class="inline fields" ref="kind">
-      <label>{{$L('job type')}}</label>
-      <div class="field">
-        <div class="ui radio checkbox">
-          <input type="radio" v-model="job.kind" name="kind" value="0" tabindex="0" class="hidden"/>
-          <label>{{$L('common job')}}</label>
+  <div class="job-edit-form">
+    <div class="job-loading" v-if="loading">{{$L('loading')}}...</div>
+    <form class="layui-form" @submit.prevent="submit">
+      <div class="job-edit-header">
+        <h3>{{$L(action == 'CREATE' ? 'create job' : 'update job')}} <em v-if="job.id">ID# {{job.id}}</em></h3>
+        <div class="job-toggle-group">
+          <label><input type="checkbox" v-model="job.pause"> {{$L('pause')}}</label>
+          <label v-if="$appConfig.alarm"><input type="checkbox" v-model="job.fail_notify"> {{job.fail_notify ? $L('warning on') : $L('warning off')}}</label>
         </div>
       </div>
-      <div class="field">
-        <div class="ui radio checkbox">
-          <input type="radio" v-model="job.kind" name="kind" value="1" tabindex="0" class="hidden"/>
-          <label>{{$L('single node single process')}}</label>
+
+      <div class="job-form-item">
+        <label>{{$L('job type')}}</label>
+        <div class="job-type-options">
+          <label><input type="radio" :value="0" v-model.number="job.kind"> {{$L('common job')}}</label>
+          <label><input type="radio" :value="1" v-model.number="job.kind"> {{$L('single node single process')}}</label>
+          <label><input type="radio" :value="2" v-model.number="job.kind"> {{$L('group level common')}}</label>
         </div>
       </div>
-      <div class="field">
-        <div class="ui radio checkbox">
-          <input type="radio" v-model="job.kind" name="kind" value="2" tabindex="0" class="hidden"/>
-          <label>{{$L('group level common')}}
-            <i class="help circle link icon" data-position="top right" :data-html="$L('group level common help')" data-variation="wide"></i>
-          </label>
+
+      <div class="job-form-grid">
+        <div class="job-form-item">
+          <label>{{$L('job name')}}</label>
+          <input class="layui-input" :value="job.name" @input="updateValue" :placeholder="$L('job name')">
+        </div>
+        <div class="job-form-item">
+          <label>{{$L('job group')}}</label>
+          <Dropdown :title="$L('select a group')" :allowAdditions="true" :items="groups" :selected="job.group" @change="changeGroup"/>
         </div>
       </div>
-    </div>
-    <div class="two fields">
-      <div class="field">
-        <label>{{$L('job name')}}</label>
-        <input type="text" ref="name" v-bind:value="job.name" v-on:input="updateValue($event.target.value)" :placeholder="$L('job name')">
+
+      <div class="job-form-grid">
+        <div class="job-form-item" style="grid-column: span 2;">
+          <label>{{$L('script path')}} {{allowSuffixsTip}}</label>
+          <input class="layui-input" v-model="job.cmd" :placeholder="$L('script path')">
+        </div>
+        <div class="job-form-item">
+          <label>{{$L($appConfig.security.open ? 'user(required)' : 'user(optional)')}} </label>
+          <Dropdown
+            v-if="$appConfig.security.open"
+            :title="$L('the user which to execute the command')"
+            :items="$appConfig.security.users"
+            :selected="job.user"
+            @change="changeUser"/>
+          <input
+            v-else
+            class="layui-input"
+            v-model="job.user"
+            :placeholder="$L('the user which to execute the command')">
+        </div>
       </div>
-      <div class="field">
-        <label>{{$L('job group')}}</label>
-        <Dropdown :title="$L('select a group')" v-bind:allowAdditions="true" v-bind:items="groups" v-bind:selected="job.group" v-on:change="changeGroup"></Dropdown>
+
+      <div class="job-form-item" v-if="$appConfig.alarm && job.fail_notify">
+        <label>{{$L('warning receiver')}}</label>
+        <Dropdown :title="$L('e-mail address')" :items="alarmReceivers" :selected="job.to" @change="changeAlarmReceiver" :multiple="true" :allowAdditions="true"/>
       </div>
-    </div>
-    <div class="fields">
-      <div class="twelve wide field">
-        <label>{{$L('script path')}} {{allowSuffixsTip}}</label>
-        <input type="text" v-model="job.cmd" :placeholder="$L('script path')">
+
+      <div class="job-form-grid">
+        <div class="job-form-item">
+          <label>{{$L('timeout(in seconds, 0 for no limits)')}}</label>
+          <input class="layui-input" type="number" min="0" v-model.number="job.timeout">
+        </div>
+        <div class="job-form-item" v-show="job.kind === 0">
+          <label>{{$L('parallel number in one node(0 for no limits)')}}</label>
+          <input class="layui-input" type="number" min="0" v-model.number="job.parallels">
+        </div>
       </div>
-      <div class="four wide field">
-        <label>{{$L($appConfig.security.open ? 'user(required)' : 'user(optional)')}}</label>
-        <Dropdown v-if="$appConfig.security.open" :title="$L('the user which to execute the command')" v-bind:items="$appConfig.security.users" v-bind:selected="job.user" v-on:change="changeUser"></Dropdown>
-        <input v-else type="text" v-model="job.user" :placeholder="$L('the user which to execute the command')">
+
+      <div class="job-form-grid">
+        <div class="job-form-item">
+          <label>{{$L('retries(number of retries when failed, 0 means no retry)')}}</label>
+          <input class="layui-input" type="number" min="0" v-model.number="job.retry">
+        </div>
+        <div class="job-form-item">
+          <label>{{$L('retry interval(in seconds)')}}</label>
+          <input class="layui-input" type="number" min="0" v-model.number="job.interval">
+        </div>
       </div>
-    </div>
-    <div class="field" v-if="$appConfig.alarm && job.fail_notify">
-      <label>{{$L('warning receiver')}}</label>
-      <Dropdown :title="$L('e-mail address')" v-bind:items="alarmReceivers" v-bind:selected="job.to" v-on:change="changeAlarmReceiver" v-bind:multiple="true" v-bind:allowAdditions="true"/>
-    </div>
-    <div class="two fields">
-      <div class="field">
-        <label>{{$L('timeout(in seconds, 0 for no limits)')}}</label>
-        <input type="number" ref="timeout" v-model.number="job.timeout">
+
+      <div class="job-form-item" v-if="$appConfig.log_expiration_days>0">
+        <label>{{$L('log expiration(log expired after N days, 0 will use default setting: {n} days)', $appConfig.log_expiration_days)}} </label>
+        <input class="layui-input" type="number" min="0" v-model.number="job.log_expiration">
       </div>
-      <div class="field" v-show="job.kind === 0">
-        <label>{{$L('parallel number in one node(0 for no limits)')}}</label>
-        <input type="number" ref="parallels" v-model.number="job.parallels">
+
+      <div class="job-alert" v-if="!job.rules || job.rules.length == 0">
+        {{$L('the job dose not have a timer currently, please click the button below to add a timer')}}
       </div>
-    </div>
-    <div class="two fields">
-      <div class="field">
-        <label>{{$L('retries(number of retries when failed, 0 means no retry)')}}</label>
-        <input type="number" ref="retry" v-model.number="job.retry">
+
+      <JobEditRule v-for="(rule, index) in job.rules" :key="rule.id" :rule="rule" :index="index" @remove="removeRule" @change="changeRule"/>
+
+      <div class="job-form-actions">
+        <button class="layui-btn layui-btn-primary" type="button" @click="addNewTimer">{{$L('add timer')}}</button>
+        <button class="layui-btn" type="submit">{{$L('save job')}}</button>
       </div>
-      <div class="field">
-        <label>{{$L('retry interval(in seconds)')}}</label>
-        <input type="number" ref="interval" v-model.number="job.interval">
-      </div>
-    </div>
-    <div class="two fields" v-if="$appConfig.log_expiration_days>0">
-      <div class="field">
-        <label>{{$L('log expiration(log expired after N days, 0 will use default setting: {n} days)', $appConfig.log_expiration_days)}}</label>
-        <input type="number" ref="log_expiration" v-model.number="job.log_expiration">
-      </div>
-    </div>
-    <div class="field">
-      <span v-if="!job.rules || job.rules.length == 0"><i class="warning circle icon"></i>{{$L('the job dose not have a timer currently, please click the button below to add a timer')}}</span>
-    </div>
-    <JobEditRule v-for="(rule, index) in job.rules" :key="rule.id" v-bind:rule="rule" :index="index" v-on:remove="removeRule" v-on:change="changeRule"/>
-    <div class="two fields">
-      <div class="field">
-        <button class="fluid ui button" v-on:click="addNewTimer" type="button"><i class="history icon"></i> {{$L('add timer')}}</button>
-      </div>
-      <div class="field">
-        <button class="fluid blue ui button" type="button" v-on:click="submit"><i class="upload icon"></i> {{$L('save job')}}</button>
-      </div>
-    </div>
-  </form>
+    </form>
+  </div>
 </template>
 
 <script>
@@ -116,12 +178,12 @@ export default {
         allowSuffixsTip: '',
         job: {
           id: '',
-          kind: 0, // 0 == 普通任务，1 == 单机任务
-          name:  '',
-          oldGroup: '',
+          name: '',
           group: '',
-          user: '',
+          oldGroup: '',
           cmd: '',
+          user: '',
+          kind: 0,
           pause: false,
           parallels: 0,
           timeout: 0,
@@ -139,9 +201,6 @@ export default {
     updateValue: function(v){
       var tv = v.replace(/[\*\/]/g, '');
       this.job.name = tv;
-      if (tv !== v) {
-        this.$refs.name.value = tv;
-      }
     },
 
     addNewTimer: function(){
@@ -149,16 +208,16 @@ export default {
       this.job.rules.push({id: this.newRandomRuleId()});
     },
 
-    changeGroup: function(val, text){
+    changeGroup: function(val){
       this.job.group = val;
     },
 
-    changeUser: function(val, text){
+    changeUser: function(val){
       this.job.user = val;
     },
 
-    changeAlarmReceiver: function(val, text){
-      this.job.to = split(val, ',');
+    changeAlarmReceiver: function(val){
+      this.job.to = Array.isArray(val) ? val : split(val, ',');
     },
 
     removeRule: function(index){
@@ -172,11 +231,10 @@ export default {
     submit: function(){
       var exceptCode = this.action == 'CREATE' ? 201 : 200;
       this.loading = true;
-      var vm = this;
       this.$rest.PUT('job', this.job)
-        .onsucceed(exceptCode, ()=>{vm.$router.push({path:'/job',query:vm.$route.query})})
-        .onfailed((resp)=>{vm.$bus.$emit('error', resp)})
-        .onend(()=>{vm.loading=false})
+        .onsucceed(exceptCode, ()=>{this.$router.push({path:'/job',query:this.$route.query})})
+        .onfailed((resp)=>{this.$bus.$emit('error', resp)})
+        .onend(()=>{this.loading=false})
         .do();
     },
 
@@ -186,59 +244,38 @@ export default {
   },
 
   mounted: function(){
-    var vm = this;
-    var secCnf = vm.$appConfig.security;
-    if (secCnf.open) {
-      if (secCnf.ext && secCnf.ext.length > 0) {
-        vm.allowSuffixsTip = vm.$L('(only [{.suffixs}] files can be allowed)', secCnf.ext.join(' '));
-      }
+    var secCnf = this.$appConfig.security;
+    if (secCnf.open && secCnf.ext && secCnf.ext.length > 0) {
+      this.allowSuffixsTip = this.$L('(only [{.suffixs}] files can be allowed)', secCnf.ext.join(' '));
     }
 
-    if (vm.$route.path.indexOf('/job/create') === 0) {
-      vm.action = 'CREATE';
+    if (this.$route.path.indexOf('/job/create') === 0) {
+      this.action = 'CREATE';
     } else {
-      vm.action = 'UPDATE';
-      vm.$rest.GET('job/'+vm.$route.params.group+'-'+vm.$route.params.id).
+      this.action = 'UPDATE';
+      this.loading = true;
+      this.$rest.GET('job/'+this.$route.params.group+'-'+this.$route.params.id).
         onsucceed(200, (resp)=>{
-          vm.job = resp;
-          vm.alarmReceivers = resp.to;
-          vm.job.oldGroup = resp.group;
-          if (vm.job.rules) {
-            for (var i in vm.job.rules) {
-              if (vm.job.rules[i].id.length == 0) {
-                vm.job.rules[i].id = vm.newRandomRuleId();
+          this.job = resp;
+          this.alarmReceivers = resp.to;
+          this.job.oldGroup = resp.group;
+          if (this.job.rules) {
+            for (var i in this.job.rules) {
+              if (this.job.rules[i].id.length == 0) {
+                this.job.rules[i].id = this.newRandomRuleId();
               }
             }
           }
         }).
-        onfailed((msg)=> vm.$bus.$emit('error', msg)).
+        onfailed((msg)=> this.$bus.$emit('error', msg)).
+        onend(()=>{this.loading = false}).
         do();
     }
 
-    vm.$rest.GET('job/groups').onsucceed(200, (resp)=>{
+    this.$rest.GET('job/groups').onsucceed(200, (resp)=>{
       !resp.includes('default') && resp.unshift('default');
-      vm.groups = resp;
+      this.groups = resp;
     }).do();
-
-    $(vm.$refs.pause).checkbox({
-      onChange: function(){
-        vm.job.pause = !vm.job.pause;
-      }
-    });
-
-    $(vm.$refs.fail_notify).checkbox({
-      onChange: function(){
-        vm.job.fail_notify = !vm.job.fail_notify;
-      }
-    });
-
-    $(vm.$refs.kind).find('.checkbox').checkbox({
-      onChange: function(){
-        vm.job.kind = +$(vm.$refs.kind).find('input[type=radio]:checked').val();
-      }
-    });
-
-    $(vm.$el).find('i.help.icon').popup();
   },
 
   components: {

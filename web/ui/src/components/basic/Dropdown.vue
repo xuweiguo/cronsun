@@ -1,44 +1,124 @@
 <template>
-<div class="ui search selection dropdown" v-bind:class="{multiple: multiple}">
-  <input type="hidden">
-  <div class="default text">{{title}}</div>
-  <i class="dropdown icon"></i>
-  <div class="menu">
-    <div class="item" v-for="item in items" v-bind:data-value="typeof item === 'object' ? item.value : item">{{typeof item === 'object' ? item.name : item}}</div>
+  <div class="cs-dropdown">
+    <select
+      class="layui-input"
+      :multiple="isMultiple"
+      v-model="internalValue"
+      @change="onChange">
+      <option
+        v-if="placeholderText && !isMultiple"
+        disabled
+        value="">
+        {{placeholderText}}
+      </option>
+      <option
+        v-for="option in optionList"
+        :key="option.value"
+        :value="option.value">
+        {{option.name}}
+      </option>
+    </select>
+    <input
+      v-if="allowAdditions"
+      type="text"
+      class="layui-input dropdown-addition"
+      :placeholder="$L('add and press enter')"
+      @keyup.enter="addCustom">
   </div>
-</div>
 </template>
 
 <script>
 export default {
   name: 'dropdown',
-  props: ['title', 'items', 'allowAdditions', 'multiple', 'selected'],
-
-  data: function(){
-    return {}
+  props: {
+    title: { type: String, default: '' },
+    items: { type: Array, default: () => [] },
+    allowAdditions: { type: [Boolean, String], default: false },
+    multiple: { type: [Boolean, String], default: false },
+    selected: { type: [String, Number, Array], default: null }
   },
 
-  mounted: function() {
-    if (!this.title || this.title.length === 0) {
-      this.title = this.$L(multiple ? 'select groups' : 'select a group');
+  data() {
+    return {
+      internalValue: this.getInitialValue(),
+      additions: []
     }
-
-    var vm = this;
-    $(this.$el).dropdown({
-      allowAdditions: !!this.allowAdditions,
-      hideAdditions: false,
-      forceSelection: false,
-      onChange: function(value, text, $choice){
-        vm.$emit('change', value, text);
-      }
-    });
-    setTimeout(()=>{
-      $(vm.$el).dropdown('set exactly', vm.selected).dropdown('refresh');
-    }, 500);
   },
 
-  updated: function(){
-    $(this.$el).dropdown('set exactly', this.selected);
+  computed: {
+    isMultiple() {
+      return this.multiple === '' ? true : !!this.multiple;
+    },
+
+    normalizedItems() {
+      return (this.items || []).map((item) => {
+        if (typeof item === 'object') {
+          return { value: item.value, name: item.name };
+        }
+        return { value: item, name: item };
+      });
+    },
+
+    optionList() {
+      return [...this.normalizedItems, ...this.additions];
+    },
+
+    placeholderText() {
+      if (this.title && this.title.length > 0) {
+        return this.title;
+      }
+      return this.isMultiple ? this.$L('select groups') : this.$L('select a group');
+    }
+  },
+
+  watch: {
+    selected: {
+      handler(val) {
+        this.internalValue = val || (this.isMultiple ? [] : '');
+      },
+      deep: true
+    }
+  },
+
+  methods: {
+    getInitialValue() {
+      return this.selected || (this.isMultiple ? [] : '');
+    },
+
+    onChange() {
+      this.$emit('change', this.internalValue);
+    },
+
+    addCustom(event) {
+      const value = (event.target.value || '').trim();
+      if (!value) return;
+      if (!this.optionList.find((opt) => opt.value === value)) {
+        this.additions.push({ value, name: value });
+      }
+      if (this.isMultiple) {
+        const values = Array.isArray(this.internalValue) ? [...this.internalValue] : [];
+        if (!values.includes(value)) {
+          values.push(value);
+        }
+        this.internalValue = values;
+      } else {
+        this.internalValue = value;
+      }
+      event.target.value = '';
+      this.onChange();
+    }
   }
 }
 </script>
+
+<style scoped>
+.cs-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdown-addition {
+  font-size: 12px;
+}
+</style>

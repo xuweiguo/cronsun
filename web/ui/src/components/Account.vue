@@ -1,11 +1,23 @@
+<style scoped>
+.account-toolbar {
+  margin-bottom: 16px;
+  text-align: right;
+}
+
+.account-table {
+  width: 100%;
+}
+</style>
+
 <template>
   <div>
     <div v-if="$store.getters.role === 1">
-      <div class="clearfix" style="margin-bottom: 20px;">
-        <router-link class="ui right floated primary button" to="/admin/account/add"><i class="add user icon"></i> {{$L('add account')}}</router-link>
+      <div class="account-toolbar">
+        <button class="layui-btn" type="button" @click="$router.push('/admin/account/add')">
+          {{$L('add account')}}
+        </button>
       </div>
-
-      <table class="ui hover teal table">
+      <table class="layui-table account-table">
         <thead>
           <tr>
             <th>{{$L('email')}}</th>
@@ -15,11 +27,16 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(account, index) in list">
-            <td><router-link :to="'/admin/account/edit?email='+account.email">{{account.email}}</router-link></td>
-            <td>{{roleMap(account.role)}}</td>
-            <td>{{$L(statusMap(account.status))}}</td>
-            <td>{{account.createTime}}</td>
+          <tr v-for="row in list" :key="row.email">
+            <td>
+              <router-link :to="'/admin/account/edit?email='+row.email">{{row.email}}</router-link>
+            </td>
+            <td>{{roleMap(row.role)}}</td>
+            <td>{{$L(statusMap(row.status))}}</td>
+            <td>{{row.createTime}}</td>
+          </tr>
+          <tr v-if="!list || list.length === 0">
+            <td colspan="4">{{$L('no data')}}</td>
           </tr>
         </tbody>
       </table>
@@ -37,16 +54,11 @@ export default {
       list: []
     }
   },
-  
+
   mounted(){
-    var vm = this;
     this.$rest.GET('/admin/accounts').
       onsucceed(200, (resp)=>{
-        vm.list = resp;
-
-        vm.$nextTick(()=>{
-          $(vm.$el).find('table .ui.dropdown').dropdown();
-        });
+        this.list = resp;
       }).
       do();
   },

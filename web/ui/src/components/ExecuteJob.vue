@@ -1,13 +1,38 @@
+<style scoped>
+.execute-modal {
+  width: 420px;
+  left: 50% !important;
+  margin-left: -210px;
+}
+
+.execute-modal .layui-layer-content {
+  padding: 16px;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+</style>
+
 <template>
-  <div class="ui modal">
-    <i class="close icon"></i>
-    <div class="header">{{$L('executing job: {job}', jobName)}}</div>
-    <div class="content">
-      <Dropdown :title="$L('node')" :items="nodes" v-on:change="changeNode" style="width:100%"></Dropdown>
-    </div>
-    <div class="actions">
-      <div class="ui deny button">{{$L('cancel')}}</div>
-      <div class="ui positive right labeled icon button">{{$L('execute now')}} <i class="checkmark icon"></i></div>
+  <div v-if="visible">
+    <div class="layui-layer-shade" @click="hide"></div>
+    <div class="layui-layer layui-layer-page execute-modal">
+      <div class="layui-layer-title">{{$L('executing job: {job}', jobName)}}</div>
+      <div class="layui-layer-content">
+        <Dropdown
+          :title="$L('node')"
+          :items="nodes"
+          v-on:change="changeNode"
+          style="width:100%"/>
+      </div>
+      <div class="modal-buttons">
+        <button class="layui-btn layui-btn-primary" type="button" @click="hide">{{$L('cancel')}}</button>
+        <button class="layui-btn" type="button" :disabled="loading" @click="submit">{{$L('execute now')}}</button>
+      </div>
     </div>
   </div>
 </template>
@@ -24,7 +49,8 @@ export default {
       jobName: '',
       nodes: [],
       selectedNode: '',
-      loading: false
+      loading: false,
+      visible: false
     }
   },
 
@@ -33,15 +59,13 @@ export default {
       this.jobName = jobName;
       this.jobGroup = jobGroup;
       this.jobId = jobId;
+      this.visible = true;
       this.fetchJobNodes();
-      $(this.$el).modal({
-        closable: false,
-        onApprove: this.submit
-      }).modal('show');
     },
 
     hide(){
-      $(this.$el).modal('hide');
+      this.visible = false;
+      this.loading = false;
     },
 
     fetchJobNodes(){
@@ -64,6 +88,7 @@ export default {
     },
 
     submit(){
+      if (this.loading) return;
       var vm = this;
       this.loading = true;
       var node = this.selectedNode === 'all nodes' ? '' : this.selectedNode;

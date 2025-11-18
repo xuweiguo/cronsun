@@ -1,72 +1,112 @@
+<style scoped>
+.log-filter-card {
+  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.log-filter__actions {
+  text-align: right;
+  margin-top: 12px;
+}
+
+.log-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.log-warning {
+  color: #FF5722;
+  font-weight: 600;
+}
+</style>
+
 <template>
-  <div>
-    <form class="ui form" method="GET" v-bind:class="{loading:loading}" v-on:submit.prevent v-on:keyup.enter="submit">
-      <div class="two fields">
-        <div class="field">
-          <label>{{$L('job name')}}</label>
-          <input type="text" v-model="names" :placeholder="$L('multiple names can separated by commas')">
-        </div>
-        <div class="field">
-          <label>{{$L('job ID')}}</label>
-          <input type="text" v-model="ids" :placeholder="$L('multiple IDs can separated by commas')">
-        </div>
-      </div>
-      <div class="field">
-        <label>{{$L('node')}}</label>
-        <input v-if="$store.getters.showWithHostname" type="text" v-model="hostnames" :placeholder="$L('multiple Hostnames can separated by commas')">
-        <input v-else type="text" v-model="ips" :placeholder="$L('multiple IPs can separated by commas')">
-      </div>
-      <div class="two fields">
-        <div class="field">
-          <label>{{$L('starting date')}}</label>
-          <input type="date" v-model="begin">
-        </div>
-        <div class="field">
-          <label>{{$L('end date')}}</label>
-          <input type="date" v-model="end">
-        </div>
-      </div>
-      <div class="two fields">
-        <div class="filed">
-          <div ref="latest" class="ui checkbox">
-            <input type="checkbox" class="hidden" v-model="latest">
-            <label>{{$L('latest result of each job on each node')}}</label>
+  <div class="log-page">
+    <div class="log-filter-card">
+      <form class="layui-form" @submit.prevent="submit" @keyup.enter="submit">
+        <div class="log-filter-grid">
+          <div>
+            <label>{{$L('job name')}}</label>
+            <input class="layui-input" v-model="names" :placeholder="$L('multiple names can separated by commas')"/>
           </div>
-        <div class="filed">
-          <div ref="failedOnly" class="ui checkbox">
-            <input type="checkbox" class="hidden" v-model="failedOnly">
-            <label>{{$L('failure only')}}</label>
+          <div>
+            <label>{{$L('job ID')}}</label>
+            <input class="layui-input" v-model="ids" :placeholder="$L('multiple IDs can separated by commas')"/>
+          </div>
+          <div>
+            <label>{{$L('node')}}</label>
+            <input
+              class="layui-input"
+              v-if="$store.getters.showWithHostname"
+              v-model="hostnames"
+              :placeholder="$L('multiple Hostnames can separated by commas')"/>
+            <input
+              class="layui-input"
+              v-else
+              v-model="ips"
+              :placeholder="$L('multiple IPs can separated by commas')"/>
+          </div>
+          <div>
+            <label>{{$L('starting date')}}</label>
+            <input type="date" class="layui-input" v-model="begin"/>
+          </div>
+          <div>
+            <label>{{$L('end date')}}</label>
+            <input type="date" class="layui-input" v-model="end"/>
           </div>
         </div>
+        <div class="log-filter-grid" style="margin-top:16px;">
+          <label>
+            <input type="checkbox" v-model="latest"> {{$L('latest result of each job on each node')}}
+          </label>
+          <label>
+            <input type="checkbox" v-model="failedOnly"> {{$L('failure only')}}
+          </label>
         </div>
-      </div>
-      <div class="field">
-        <button class="fluid ui button" type="button" v-on:click="submit">{{$L('submit query')}}</button>
-      </div>
-    </form>
-    <table class="ui selectable green table" v-if="list && list.length > 0">
+        <div class="log-filter__actions">
+          <button class="layui-btn" type="submit" :disabled="loading">{{$L('submit query')}}</button>
+        </div>
+      </form>
+    </div>
+
+    <table class="layui-table" v-if="list && list.length">
       <thead>
         <tr>
-          <th class="center aligned">{{$L('job name')}}</th>
-          <th class="center aligned">{{$L('executing node')}}</th>
-          <th class="center aligned">{{$L('executing user')}}</th>
-          <th class="center aligned">{{$L('executing time')}}</th>
-          <th class="center aligned">{{$L('executing result')}}</th>
+          <th>{{$L('job name')}}</th>
+          <th>{{$L('executing node')}}</th>
+          <th>{{$L('executing user')}}</th>
+          <th>{{$L('executing time')}}</th>
+          <th>{{$L('executing result')}}</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="log in list">
-          <td><router-link class="item" :to="'/job/edit/'+log.jobGroup+'/'+log.jobId">{{log.name}}</router-link></td>
-          <td :title="log.node">{{$store.getters.hostshows(log.node)}}</td>
-          <td>{{log.user}}</td>
-          <td :class="{warning: durationAttention(log.beginTime, log.endTime)}"><i class="attention icon" v-if="durationAttention(log.beginTime, log.endTime)"></i> {{formatTime(log)}}</td>
-          <td :class="{error: !log.success}">
-            <router-link :to="'/log/'+log.id">{{$L(log.success ? 'successed' : 'failed')}}</router-link> |
-            <a href="#" :title="$L('click to select a node and re-execute job')" v-on:click.prevent="showExecuteJobModal(log.name, log.jobGroup, log.jobId)"><i class="icon repeat"></i></a>
+        <tr v-for="row in list" :key="row.id">
+          <td>
+            <router-link :to="'/job/edit/'+row.jobGroup+'/'+row.jobId">{{row.name}}</router-link>
+          </td>
+          <td>
+            <span :title="row.node">{{$store.getters.hostshows(row.node)}}</span>
+          </td>
+          <td>{{row.user}}</td>
+          <td>
+            <span :class="{'log-warning': durationAttention(row.beginTime, row.endTime)}">
+              {{formatTime(row)}}
+            </span>
+          </td>
+          <td>
+            <router-link :to="'/log/'+row.id">
+              {{$L(row.success ? 'successed' : 'failed')}}
+            </router-link>
+            |
+            <button class="layui-btn layui-btn-xs" type="button" :title="$L('click to select a node and re-execute job')" @click.prevent="showExecuteJobModal(row.name, row.jobGroup, row.jobId)">{{$L('execute')}}</button>
           </td>
         </tr>
       </tbody>
     </table>
+    <div v-else class="log-warning">{{loading ? $L('loading') : $L('no data')}}</div>
     <Pager v-if="list && list.length>0" :total="total" :maxBtn="5"/>
     <ExecuteJob ref="executeJobModal"/>
   </div>
@@ -96,20 +136,17 @@ export default {
     }
   },
 
-  mounted: function(to, from, next){
+  mounted: function(){
       this.fillParams();
       this.fetchList(this.buildQuery());
 
-      var vm = this;
-      $(this.$refs.latest).checkbox();
-      $(this.$refs.failedOnly).checkbox();
-
-      // 挂载时，初始化日期选择为当前日志，防止大数据量的时候，用户无差别请求导致的io超时
       const time = new Date();
       const day = ("0" + time.getDate()).slice(-2);
       const month = ("0" + (time.getMonth() + 1)).slice(-2);
       const today = time.getFullYear() + "-" + (month) + "-" + (day);
-      this.begin = this.end = today;
+      if (!this.begin && !this.end) {
+        this.begin = this.end = today;
+      }
   },
 
   watch: {
@@ -125,8 +162,8 @@ export default {
       this.ids = this.$route.query.ids || '';
       this.hostnames = this.$route.query.hostnames || '';
       this.ips = this.$route.query.ips || '';
-      this.begin = this.$route.query.begin || '';
-      this.end = this.$route.query.end || '';
+      this.begin = this.$route.query.begin || this.begin;
+      this.end = this.$route.query.end || this.end;
       this.page = this.$route.query.page || 1;
       this.latest = this.$route.query.latest === 'true' || this.$route.query.latest === true;
       this.failedOnly = this.$route.query.failedOnly === 'true' || this.$route.query.failedOnly === true;

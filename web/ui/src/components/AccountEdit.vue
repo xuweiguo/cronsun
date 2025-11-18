@@ -1,60 +1,66 @@
+<style scoped>
+.account-edit-form {
+  max-width: 640px;
+}
+
+.account-edit-form .layui-form-item {
+  margin-bottom: 18px;
+}
+
+.role-options {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+</style>
+
 <template>
-  <form v-else class="ui form" v-bind:class="{loading:loading}" v-on:submit.prevent>
-    <h3 class="ui header">{{$L(action == 'CREATE' ? 'add account' : 'edit account')}}</h3>
-    <div class="field">
-      <label>{{$L('email')}}</label>
-      <input type="text" v-model:value="account.email"/>
-    </div>
-    <div class="field">
-      <label>{{$L('password')}}</label>
-      <input type="text" v-model:value="account.password"/>
-    </div>
-    <div class="inline fields" ref="role">
-      <label>{{$L('role')}}</label>
-      <div class="field">
-        <div class="ui radio checkbox">
-          <input type="radio" name="role" value="1" v-model="account.role" class="hidden">
-          <label>Administrator</label>
-        </div>
-      </div>
-      <div class="field">
-        <div class="ui radio checkbox">
-          <input type="radio" name="role" value="2" v-model="account.role" class="hidden">
-          <label>Developer</label>
-        </div>
-      </div>
-      <div class="field">
-        <div class="ui radio checkbox">
-          <input type="radio" name="role" value="3" v-model="account.role" class="hidden">
-          <label>Reporter(ReadOnly)</label>
-        </div>
-      </div>
-    </div>
-    <div class="field">
-      <label>{{$L('job group')}}</label>
-      <Dropdown :title="$L('select a group')" v-bind:items="groups" v-bind:selected="account.group" v-on:change="changeGroup" v-bind:multiple="true"></Dropdown>
-    </div>
-    <div v-show="action === 'UPDATE'">
-      <div class="inline fields" ref="status">
-        <label>{{$L('status')}}</label>
-        <div class="field">
-          <div class="ui radio checkbox">
-            <input type="radio" name="status" value="1" v-model="account.status" class="hidden">
-            <label>{{$L('active')}}</label>
+  <div>
+    <div v-if="$store.getters.role === 1" class="account-edit-form">
+      <form class="layui-form" @submit.prevent="submit">
+        <h3>{{$L(action == 'CREATE' ? 'add account' : 'edit account')}}</h3>
+        <div class="layui-form-item">
+          <label class="layui-form-label">{{$L('email')}}</label>
+          <div class="layui-input-block">
+            <input class="layui-input" v-model="account.email" required>
           </div>
         </div>
-        <div class="field">
-          <div class="ui radio checkbox">
-            <input type="radio" name="status" value="-1" v-model="account.status" class="hidden">
-            <label>{{$L('ban')}}</label>
+        <div class="layui-form-item">
+          <label class="layui-form-label">{{$L('password')}}</label>
+          <div class="layui-input-block">
+            <input class="layui-input" v-model="account.password" type="password" autocomplete="off">
           </div>
         </div>
-      </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">{{$L('role')}}</label>
+          <div class="layui-input-block role-options">
+            <label><input type="radio" value="1" v-model.number="account.role"> Administrator</label>
+            <label><input type="radio" value="2" v-model.number="account.role"> Developer</label>
+            <label><input type="radio" value="3" v-model.number="account.role"> Reporter(ReadOnly)</label>
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">{{$L('job group')}}</label>
+          <div class="layui-input-block">
+            <Dropdown :title="$L('select a group')" :items="groups" :selected="account.group" @change="changeGroup" :multiple="true"/>
+          </div>
+        </div>
+        <div class="layui-form-item" v-if="action === 'UPDATE'">
+          <label class="layui-form-label">{{$L('status')}}</label>
+          <div class="layui-input-block role-options">
+            <label><input type="radio" value="1" v-model.number="account.status"> {{$L('active')}}</label>
+            <label><input type="radio" value="-1" v-model.number="account.status"> {{$L('ban')}}</label>
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <button class="layui-btn" type="submit" :disabled="loading">
+            {{$L('save')}}
+          </button>
+        </div>
+      </form>
     </div>
-    <div class="field">
-      <button class="fluid blue ui button" type="button" v-on:click="submit">{{$L('save')}}</button>
-    </div>
-  </form>
+    <div v-else>Access deny.</div>
+  </div>
 </template>
 
 <script>
@@ -81,8 +87,6 @@ export default {
   },
 
   mounted: function(){
-    var vm = this;
-
     if (this.$route.path.indexOf('/admin/account/add') === 0) {
       this.action = 'CREATE';
       this.loading = false;
@@ -90,7 +94,7 @@ export default {
       this.action = 'UPDATE';
       this.$rest.GET('admin/account/'+this.$route.query.email).
         onsucceed(200, (resp)=>{
-          vm.account = {
+          this.account = {
             originEmail: resp.email,
             email: resp.email,
             password: '',
@@ -99,29 +103,21 @@ export default {
             group: resp.group || []
           }
         }).
-        onfailed((msg)=>{vm.$bus.$emit('error', msg)}).
-        onend(()=>{vm.loading = false}).
+        onfailed((msg)=>{this.$bus.$emit('error', msg)}).
+        onend(()=>{this.loading = false}).
         do();
     }
 
-    $(this.$refs.role).find('.checkbox').checkbox({
-      onChange: function(){
-        vm.account.role = +$(vm.$refs.role).find('input[type=radio]:checked').val();
-      }
-    });
-
-    if (this.action === 'UPDATE') {
-      $(this.$refs.status).find('.checkbox').checkbox({
-        onChange: function(){
-          vm.account.status = +$(vm.$refs.status).find('input[type=radio]:checked').val();
-        }
-      });
-    }
+    this.$rest.GET('job/groups').onsucceed(200, (resp)=>{
+      !resp.includes('default') && resp.unshift('default');
+      this.groups = resp;
+    }).do();
   },
 
   methods: {
     submit(){
-      var vm = this, req, code;
+      if (this.loading) return;
+      var req, code;
       this.loading = true;
       if (this.action === 'CREATE') {
         req = this.$rest.PUT('admin/account', this.account);
@@ -131,14 +127,14 @@ export default {
         code =  200;
       }
 
-      req.onsucceed(code, (resp)=>{
-          vm.$router.push('/admin/account/list');
+      req.onsucceed(code, ()=>{
+          this.$router.push('/admin/account/list');
         }).
-        onfailed((msg)=>{vm.$bus.$emit('error', msg)}).
-        onend(()=>{vm.loading = false}).
+        onfailed((msg)=>{this.$bus.$emit('error', msg)}).
+        onend(()=>{this.loading = false}).
         do();
     },
-    changeGroup: function(val, text){
+    changeGroup: function(val){
       this.account.group = val;
     },
   }

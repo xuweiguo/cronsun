@@ -1,45 +1,206 @@
 <style scoped>
-.ui.vertical.menu h4 {
-  background: rgba(0,0,0,.05);
-  margin-bottom: 0px;
-  margin-top: 0px;
+.app-layout {
+  min-height: 100vh;
+  background: #f2f2f2;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 16px;
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.app-logo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+}
+
+.app-menu {
+  background: transparent;
+}
+
+.app-menu .layui-nav-item {
+  line-height: 60px;
+}
+
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-link {
+  color: #fff;
+}
+
+.header-link:hover {
+  text-decoration: underline;
+}
+
+.app-main {
+  padding: 24px;
+  background: #f2f2f2;
+}
+
+.setting-drawer {
+  position: fixed;
+  top: 0;
+  right: -360px;
+  width: 320px;
+  height: 100vh;
+  background: #fff;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+  transition: right 0.2s ease-in-out;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.setting-drawer.is-open {
+  right: 0;
+}
+
+.setting-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 999;
+}
+
+.setting-section {
+  margin-bottom: 24px;
+}
+
+.setting-section__title {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.setting-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setting-radio-group label {
+  cursor: pointer;
+  padding: 4px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+}
+
+.setting-radio-group input {
+  margin-right: 4px;
 }
 </style>
 
 <template>
   <div id="app">
-    <div class="ui blue inverted menu fixed">
-      <div class="item">CRONSUN</div>
-      <router-link v-if="shouldOpen" class="item" to="/" v-bind:class="{active: this.$route.path == '/'}"><i class="dashboard icon"></i> {{$L('dashboard')}}</router-link>
-      <router-link v-if="shouldOpen" class="item" to="/log" v-bind:class="{active: this.$route.path.indexOf('/log') === 0}"><i class="file text icon"></i> {{$L('log')}}</router-link>
-      <router-link v-if="shouldOpen" class="item" to="/job" v-bind:class="{active: this.$route.path.indexOf('/job') === 0}"><i class="calendar icon"></i> {{$L('job')}}</router-link>
-      <router-link v-if="shouldOpen" class="item" to="/node" v-bind:class="{active: this.$route.path.indexOf('/node') === 0}"><i class="server icon"></i> {{$L('node')}}</router-link>
-      <router-link v-if="$store.getters.enabledAuth && $store.getters.role === 1" class="item" to="/admin/account/list" v-bind:class="{active: this.$route.path.indexOf('/admin/account') === 0}"><i class="user icon"></i> {{$L('account')}}</router-link>
-      <a class="item" href="https://github.com/shunfei/cronsun/wiki" target="_blank"><i class="external alternate icon"></i> Docs</a>
-      <div class="right menu">
-        <router-link to="/user/setpwd" class="item" v-if="this.$store.getters.email"><i class="user icon"></i> {{this.$store.getters.email}}</router-link>
-        <a class="item" v-if="this.$store.getters.email" href="#" v-on:click="logout"><i class="sign out icon"></i></a>
-
-        <a class="item" href="#" @click.prevent="toggleSetting"><i class="settings icon"></i></a>
-      </div>
-    </div>
-    <div style="height: 55px;"></div>
-    <div class="ui container pusher">
-      <router-view></router-view>
-    </div>
-
-    <div ref="sidebar" class="ui sidebar right vertical menu">
-      <h4 class="item">{{$store.getters.version}}</h4>
-      <h4 class="item">Language</h4>
-      <div class="item">
-        <div class="menu">
-          <a class="item" :class="{active: locale === lang.code}" href="#"  v-for="lang in $Lang.supported" @click.prevent="selectLanguage(lang.code)">{{lang.name}}</a>
+    <div class="layui-layout layui-layout-admin app-layout">
+      <div class="layui-header app-header">
+        <div class="app-header__left">
+          <span class="app-logo">CRONSUN</span>
+          <ul class="layui-nav layui-bg-black app-menu">
+            <li
+              v-if="shouldOpen"
+              class="layui-nav-item"
+              :class="{'layui-this': activeMenu === '/'}"
+              @click="navigate('/')">
+              <a>{{$L('dashboard')}}</a>
+            </li>
+            <li
+              v-if="shouldOpen"
+              class="layui-nav-item"
+              :class="{'layui-this': activeMenu === '/log'}"
+              @click="navigate('/log')">
+              <a>{{$L('log')}}</a>
+            </li>
+            <li
+              v-if="shouldOpen"
+              class="layui-nav-item"
+              :class="{'layui-this': activeMenu === '/job'}"
+              @click="navigate('/job')">
+              <a>{{$L('job')}}</a>
+            </li>
+            <li
+              v-if="shouldOpen"
+              class="layui-nav-item"
+              :class="{'layui-this': activeMenu === '/node'}"
+              @click="navigate('/node')">
+              <a>{{$L('node')}}</a>
+            </li>
+            <li
+              v-if="$store.getters.enabledAuth && $store.getters.role === 1"
+              class="layui-nav-item"
+              :class="{'layui-this': activeMenu === '/admin/account/list'}"
+              @click="navigate('/admin/account/list')">
+              <a>{{$L('account')}}</a>
+            </li>
+            <li class="layui-nav-item" @click="openDocs">
+              <a>Docs</a>
+            </li>
+          </ul>
+        </div>
+        <div class="app-header__actions">
+          <router-link
+            v-if="$store.getters.email"
+            to="/user/setpwd"
+            class="header-link">
+            {{$store.getters.email}}
+          </router-link>
+          <button
+            v-if="$store.getters.email"
+            class="layui-btn layui-btn-sm layui-btn-primary"
+            type="button"
+            @click="logout">
+            {{$L('logout')}}
+          </button>
+          <button
+            class="layui-btn layui-btn-sm"
+            type="button"
+            @click="toggleSetting">
+            {{$L('settings')}}
+          </button>
         </div>
       </div>
-      <h4 class="item">{{$L('node show as')}}</h4>
-      <div class="item">
-        <div class="menu">
-          <a class="item" :class="{active: hostshow === h.value}" href="#" v-for="h in hostshowsList" @click.prevent="selectHostshows(h.value)">{{h.name}}</a>
+      <div class="layui-body app-main">
+        <router-view></router-view>
+      </div>
+    </div>
+
+    <div class="setting-mask" v-if="settingOpen" @click="toggleSetting"></div>
+    <div class="setting-drawer" :class="{'is-open': settingOpen}">
+      <h3>{{$L('settings')}}</h3>
+      <div class="setting-section">
+        <div class="setting-section__title">Version</div>
+        <div>{{$store.getters.version}}</div>
+      </div>
+      <div class="setting-section">
+        <div class="setting-section__title">Language</div>
+        <div class="setting-radio-group">
+          <label v-for="lang in $Lang.supported" :key="lang.code">
+            <input type="radio" name="lang" :value="lang.code" v-model="locale" @change="selectLanguage(lang.code)">
+            {{lang.name}}
+          </label>
+        </div>
+      </div>
+      <div class="setting-section">
+        <div class="setting-section__title">{{$L('node show as')}}</div>
+        <div class="setting-radio-group">
+          <label v-for="h in hostshowsList" :key="h.value">
+            <input type="radio" name="hostshows" :value="h.value" v-model="hostshow" @change="selectHostshows(h.value)">
+            {{h.name}}
+          </label>
         </div>
       </div>
     </div>
@@ -50,7 +211,7 @@
 
 <script>
 import store from './vuex/store';
-import Vue from 'vue';
+import Cookies from 'js-cookie';
 import Messager from './components/Messager.vue';
 
 export default {
@@ -60,13 +221,14 @@ export default {
   data: function() {
     return {
       hostshowsList: [{name: this.$L('hostname'), value: 'hostname'}, {name: 'IP', value: 'ip'}],
-      locale: ''
+      locale: '',
+      settingOpen: false
     }
   },
 
   created: function() {
-    this.locale = window.$.cookie('locale');
-    this.$store.commit('setShowWithHostname', window.$.cookie('hostshows') === 'hostname');
+    this.locale = Cookies.get('locale') || this.$Lang.getLocale();
+    this.$store.commit('setShowWithHostname', Cookies.get('hostshows') === 'hostname');
   },
 
   computed: {
@@ -74,8 +236,24 @@ export default {
       return !this.$store.getters.enabledAuth || (this.$store.getters.enabledAuth && this.$store.getters.email)
     },
 
-    hostshow() {
-      return this.$store.getters.showWithHostname ? 'hostname' : 'ip';
+    hostshow: {
+      get() {
+        return this.$store.getters.showWithHostname ? 'hostname' : 'ip';
+      },
+      set(value) {
+        const showHost = value === 'hostname';
+        this.$store.commit('setShowWithHostname', showHost);
+      }
+    },
+
+    activeMenu() {
+      const path = this.$route.path;
+      if (path.indexOf('/log') === 0) return '/log';
+      if (path.indexOf('/job') === 0) return '/job';
+      if (path.indexOf('/node') === 0) return '/node';
+      if (path.indexOf('/admin/account') === 0) return '/admin/account/list';
+      if (path.indexOf('/user') === 0) return '/user/setpwd';
+      return '/';
     }
   },
 
@@ -92,25 +270,35 @@ export default {
     },
 
     toggleSetting() {
-      $(this.$refs.sidebar).sidebar('toggle');
+      this.settingOpen = !this.settingOpen;
+    },
+
+    openDocs() {
+      window.open('https://github.com/shunfei/cronsun/wiki', '_blank');
+    },
+
+    navigate(index) {
+      if (index && this.$route.path !== index) {
+        this.$router.push(index);
+      }
     },
 
     selectLanguage(code) {
       if (this.locale !== code) {
-        window.$.cookie('locale', code);
+        Cookies.set('locale', code);
         window.location.reload();
         return;
       }
-      this.toggleSetting();
+      this.settingOpen = false;
     },
 
     selectHostshows(v) {
       if (this.hostshow !== v) {
-        window.$.cookie('hostshows', v);
+        Cookies.set('hostshows', v);
         window.location.reload();
         return;
       }
-      this.toggleSetting();
+      this.settingOpen = false;
     }
   },
 
