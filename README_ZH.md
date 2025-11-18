@@ -65,6 +65,19 @@
 
 ## 开始
 
+### 目录结构
+
+项目改造成 [mix-go](https://github.com/mix-go) 约定的脚手架：不同的可执行文件放在
+`cmd/` 目录下，共用的启动流程沉淀在 `internal/` 目录，方便拆分和扩展。
+
+```
+cmd/
+├── cronnode   # 节点服务入口
+└── cronweb    # Web 管控入口
+internal/
+└── app/bootstrap  # 统一封装日志、配置等启动逻辑
+```
+
 ### 安装
 
 直接下载执行文件 [latest release](https://github.com/shunfei/cronsun/releases/latest)。
@@ -76,7 +89,7 @@ go get -u github.com/shunfei/cronsun
 cd $GOPATH/src/github.com/shunfei/cronsun
 go mod vendor
 # 如果 go mod vendor 下载失败，请尝试 https://goproxy.io
-sh build.sh
+make build APP=cronweb   # 或 APP=cronnode
 ```
 
 ### 运行

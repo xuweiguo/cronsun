@@ -1,28 +1,32 @@
+<style scoped>
+.account-toolbar {
+  margin-bottom: 16px;
+  text-align: right;
+}
+</style>
+
 <template>
   <div>
     <div v-if="$store.getters.role === 1">
-      <div class="clearfix" style="margin-bottom: 20px;">
-        <router-link class="ui right floated primary button" to="/admin/account/add"><i class="add user icon"></i> {{$L('add account')}}</router-link>
+      <div class="account-toolbar">
+        <el-button type="primary" icon="el-icon-user-solid" @click="$router.push('/admin/account/add')">
+          {{$L('add account')}}
+        </el-button>
       </div>
-
-      <table class="ui hover teal table">
-        <thead>
-          <tr>
-            <th>{{$L('email')}}</th>
-            <th>{{$L('role')}}</th>
-            <th>{{$L('status')}}</th>
-            <th>{{$L('added time')}}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(account, index) in list">
-            <td><router-link :to="'/admin/account/edit?email='+account.email">{{account.email}}</router-link></td>
-            <td>{{roleMap(account.role)}}</td>
-            <td>{{$L(statusMap(account.status))}}</td>
-            <td>{{account.createTime}}</td>
-          </tr>
-        </tbody>
-      </table>
+      <el-table :data="list" border stripe :empty-text="$L('no data')">
+        <el-table-column :label="$L('email')" min-width="220">
+          <template slot-scope="{row}">
+            <router-link :to="'/admin/account/edit?email='+row.email">{{row.email}}</router-link>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$L('role')" width="180">
+          <template slot-scope="{row}">{{roleMap(row.role)}}</template>
+        </el-table-column>
+        <el-table-column :label="$L('status')" width="160">
+          <template slot-scope="{row}">{{$L(statusMap(row.status))}}</template>
+        </el-table-column>
+        <el-table-column prop="createTime" :label="$L('added time')" width="200"></el-table-column>
+      </el-table>
     </div>
     <div v-else>Access deny.</div>
   </div>
@@ -37,16 +41,11 @@ export default {
       list: []
     }
   },
-  
+
   mounted(){
-    var vm = this;
     this.$rest.GET('/admin/accounts').
       onsucceed(200, (resp)=>{
-        vm.list = resp;
-
-        vm.$nextTick(()=>{
-          $(vm.$el).find('table .ui.dropdown').dropdown();
-        });
+        this.list = resp;
       }).
       do();
   },

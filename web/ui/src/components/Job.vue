@@ -1,83 +1,157 @@
-<style scope>
-  .clearfix:after {content:""; clear:both; display:table;}
-  .ui.fitted.checkbox {min-height: 15px;}
+<style scoped>
+.job-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.job-toolbar__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.job-filter-card {
+  margin-bottom: 16px;
+}
+
+.job-table {
+  margin-top: 8px;
+}
+
+.job-name-link {
+  color: #409EFF;
+}
+
+.job-name-link:hover {
+  text-decoration: underline;
+}
 </style>
+
 <template>
-  <div>
-    <div class="clearfix" style="margin-bottom: 20px;">
-      <router-link class="ui left floated button" to="/job/executing">{{$L('view executing jobs')}}</router-link>
-      <button class="ui left floated icon button" v-on:click="refresh"><i class="refresh icon"></i></button>
-      <div class="ui icon buttons">
-        <button class="ui left floated icon button" v-on:click="batched=!batched">{{$L('batch')}}</button>
-        <button class="ui button" :class="{disabled: batchIds.length == 0}" v-if="batched" v-on:click="batch('start')">
-          <i class="play icon"></i>
-        </button>
-        <button class="ui button" :class="{disabled: batchIds.length == 0}" v-if="batched" v-on:click="batch('pause')">
-          <i class="pause icon"></i>
-        </button>
+  <div class="job-page">
+    <div class="job-toolbar">
+      <div class="job-toolbar__actions">
+        <el-button type="primary" icon="el-icon-view" @click="$router.push('/job/executing')">
+          {{$L('view executing jobs')}}
+        </el-button>
+        <el-button icon="el-icon-refresh" circle @click="refresh"></el-button>
+        <el-button-group>
+          <el-button icon="el-icon-collection" @click="batched = !batched">
+            {{$L('batch')}}
+          </el-button>
+          <el-button
+            v-if="batched"
+            type="success"
+            icon="el-icon-video-play"
+            :disabled="batchIds.length === 0"
+            @click="batch('start')"/>
+          <el-button
+            v-if="batched"
+            type="warning"
+            icon="el-icon-video-pause"
+            :disabled="batchIds.length === 0"
+            @click="batch('pause')"/>
+        </el-button-group>
       </div>
-      <router-link class="ui right floated primary button" to="/job/create"><i class="add to calendar icon"></i> {{$L('create job')}}</router-link>
+      <el-button type="primary" icon="el-icon-plus" @click="$router.push('/job/create')">
+        {{$L('create job')}}
+      </el-button>
     </div>
-    <form class="ui form">
-      <div class="two fields">
-        <div class="field">
+
+    <el-card class="job-filter-card" shadow="never">
+      <el-row :gutter="16">
+        <el-col :sm="12" :xs="24">
           <label>{{$L('group filter')}}</label>
-          <Dropdown :title="$L('select a group')" v-bind:items="groups" v-on:change="changeGroup" :selected="group"/>
-        </div>
-        <div class="field">
+          <Dropdown :title="$L('select a group')" :items="groups" @change="changeGroup" :selected="group"/>
+        </el-col>
+        <el-col :sm="12" :xs="24">
           <label>{{$L('node filter')}}</label>
-          <Dropdown :title="$L('select a node')" v-bind:items="nodes" v-on:change="changeNode" :selected="node"/>
-        </div>
-      </div>
-    </form>
-    <table class="ui hover blue table" v-if="jobs.length > 0">
-      <thead>
-        <tr>
-          <th class="collapsing center aligned">{{$L('operation')}}</th>
-          <th class="collapsing center aligned">{{$L('status')}}</th>
-          <th class="center aligned">{{$L('group')}}</th>
-          <th class="center aligned">{{$L('user')}}</th>
-          <th class="center aligned">{{$L('name')}}</th>
-          <th class="center aligned">{{$L('latest executed')}}</th>
-          <th class="center aligned">{{$L('executing result')}}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(job, index) in jobs">
-          <td class="center aligned">
-            <div class="ui icon dropdown" v-show="!batched">
-              <i class="content icon"></i>
-              <div class="menu">
-                <div class="item" v-on:click="editJob(job.group, job.id)">{{$L('edit')}}</div>
-                <div class="item" v-if="job.pause" v-on:click="changeStatus(job.group, job.id, index, !job.pause)">{{$L('open')}}</div>
-                <div class="item" v-if="!job.pause" v-on:click="changeStatus(job.group, job.id, index, !job.pause)">{{$L('pause')}}</div>
-                <div class="divider"></div>
-                <div class="item" style="color:red;" v-on:click="removeJob(job.group, job.id, index)">{{$L('delete')}}</div>
-              </div>
-            </div>
-            <div class="ui fitted checkbox" v-show="batched">
-              <input type="checkbox" :value="job.group+'/'+job.id" v-model="batchIds"><label></label>
-            </div>
-          </td>
-          <td class="center aligned"><i class="icon" v-bind:class="{pause: job.pause, play: !job.pause, green: !job.pause}"></i></td>
-          <td>{{job.group}}</td>
-          <td>{{job.user && job.user.length > 0 ? job.user : '-'}}</td>
-          <td><router-link :to="buildEditJobURL(job.group, job.id)">{{job.name}}</router-link></td>
-          <td>
-            <span v-if="!job.latestStatus">-</span>
-            <span v-else>{{formatLatest(job.latestStatus)}}</span>
-            <br/>
-            <span>{{formatNextRunTime(job.nextRunTime)}}</span>
-          </td>
-          <td :class="{error: job.latestStatus && !job.latestStatus.success}">
-            <span v-if="!job.latestStatus">-</span>
-            <router-link v-else :to="'/log/'+job.latestStatus.refLogId">{{$L(job.latestStatus.success ? 'successed' : 'failed')}}</router-link> |
-            <router-link :to="{path: 'log', query: {latest:true, ids: job.id}}">latest</router-link> |
-            <a href="#" :title="$L('click to select a node and re-execute job')" v-on:click.prevent="showExecuteJobModal(job.name, job.group, job.id)"><i class="icon repeat"></i></a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          <Dropdown :title="$L('select a node')" :items="nodes" @change="changeNode" :selected="node"/>
+        </el-col>
+      </el-row>
+    </el-card>
+
+    <el-table
+      class="job-table"
+      :data="jobs"
+      stripe
+      border
+      v-loading="loading"
+      :empty-text="$L('no data')">
+      <el-table-column
+        :label="$L('operation')"
+        width="140"
+        fixed="left">
+        <template slot-scope="{row, $index}">
+          <el-checkbox
+            v-if="batched"
+            v-model="batchIds"
+            :label="row.group + '/' + row.id">
+          </el-checkbox>
+          <el-dropdown v-else trigger="click" @command="(cmd) => handleAction(row, $index, cmd)">
+            <span class="el-dropdown-link">
+              <i class="el-icon-more"></i>
+            </span>
+            <el-dropdown-menu slot="dropdown">
+              <el-dropdown-item command="edit">{{$L('edit')}}</el-dropdown-item>
+              <el-dropdown-item command="toggle">
+                {{row.pause ? $L('open') : $L('pause')}}
+              </el-dropdown-item>
+              <el-dropdown-item divided command="delete" style="color:#F56C6C;">
+                {{$L('delete')}}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </el-dropdown>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$L('status')" width="120">
+        <template slot-scope="{row}">
+          <el-tag :type="row.pause ? 'warning' : 'success'">
+            {{row.pause ? $L('pause') : $L('open')}}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="group" :label="$L('group')" width="140"></el-table-column>
+      <el-table-column :label="$L('user')" width="160">
+        <template slot-scope="{row}">
+          {{row.user && row.user.length > 0 ? row.user : '-'}}
+        </template>
+      </el-table-column>
+      <el-table-column :label="$L('name')" min-width="200">
+        <template slot-scope="{row}">
+          <router-link class="job-name-link" :to="buildEditJobURL(row.group, row.id)">{{row.name}}</router-link>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$L('latest executed')" min-width="220">
+        <template slot-scope="{row}">
+          <div v-if="!row.latestStatus">-</div>
+          <div v-else>{{formatLatest(row.latestStatus)}}</div>
+          <small>{{formatNextRunTime(row.nextRunTime)}}</small>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$L('executing result')" min-width="280">
+        <template slot-scope="{row}">
+          <span v-if="!row.latestStatus">-</span>
+          <span v-else>
+            <router-link :to="'/log/'+row.latestStatus.refLogId">
+              {{$L(row.latestStatus.success ? 'successed' : 'failed')}}
+            </router-link>
+            |
+            <router-link :to="{path: 'log', query: {latest:true, ids: row.id}}">latest</router-link>
+            |
+            <el-tooltip :content="$L('click to select a node and re-execute job')">
+              <el-button
+                type="text"
+                icon="el-icon-refresh"
+                @click.prevent="showExecuteJobModal(row.name, row.group, row.id)">
+              </el-button>
+            </el-tooltip>
+          </span>
+        </template>
+      </el-table-column>
+    </el-table>
     <ExecuteJob ref="executeJobModal"/>
   </div>
 </template>
@@ -97,10 +171,11 @@ export default {
       group: '',
       nodes: [],
       node: '',
-      jobs: []
+      jobs: [],
+      loading: false
     }
   },
-  
+
   mounted: function(){
     this.fillParams();
     var vm = this;
@@ -115,8 +190,6 @@ export default {
     var nodes = Array.from(this.$store.getters.dropdownNodes);
     nodes.unshift({value: '', name: this.$L('all nodes')});
     vm.nodes = nodes;
-
-    $('.ui.checkbox').checkbox();
   },
 
   watch: {
@@ -132,14 +205,12 @@ export default {
       this.node = this.$route.query.node || '';
     },
 
-    changeGroup: function(val, text){
-      var vm = this;
+    changeGroup: function(val){
       this.group = val;
       this.$router.push('job?'+this.buildQuery());
     },
 
-    changeNode: function(val, text){
-      var vm = this;
+    changeNode: function(val){
       this.node = val;
       this.$router.push('job?'+this.buildQuery());
     },
@@ -153,11 +224,11 @@ export default {
 
     fetchList: function(query){
       var vm = this;
+      this.loading = true;
       this.$rest.GET('jobs?'+query).onsucceed(200, (resp)=>{
         vm.jobs = resp;
-        vm.$nextTick(()=>{
-          $(vm.$el).find('table .ui.dropdown').dropdown();
-        });
+      }).onend(()=>{
+        vm.loading = false;
       }).do();
     },
 
@@ -192,9 +263,19 @@ export default {
       }).do();
     },
 
+    handleAction(row, index, command){
+      if (command === 'edit') {
+        this.editJob(row.group, row.id);
+      } else if (command === 'toggle') {
+        this.changeStatus(row.group, row.id, index, !row.pause);
+      } else if (command === 'delete') {
+        this.removeJob(row.group, row.id, index);
+      }
+    },
+
     formatExecResult: function(st){
       if (!st) return '-';
-      return 
+      return
     },
 
     formatLatest: function(latest){
@@ -219,7 +300,9 @@ export default {
       var vm = this;
       this.$rest.POST('jobs/'+op, this.batchIds).onsucceed(200, (resp)=>{
         vm.refresh();
-        vm.$bus.$emit('warning', resp);
+        vm.batchIds = [];
+      }).onfailed((msg)=>{
+        vm.$bus.$emit('warning', msg);
       }).do();
     }
   },

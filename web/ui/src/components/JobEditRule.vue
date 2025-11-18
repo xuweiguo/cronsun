@@ -5,7 +5,9 @@
     <div class="field">
       <div class="ui icon input">
         <input type="text" v-bind:value="rule.timer" v-on:input="change('timer', $event.target.value)" :placeholder="$L('0 * * * * *, rules see the 「?」on the right')"/>
-        <i ref="ruletip" class="large help circle link icon" data-position="top right" :data-html="$L('<sec> <min> <hr> <day> <month> <week>, rules is same with Cron')" data-variation="wide"></i>
+        <el-tooltip :content="$L('<sec> <min> <hr> <day> <month> <week>, rules is same with Cron')" placement="top">
+          <i class="large help circle link icon"></i>
+        </el-tooltip>
       </div>
     </div>
     <div class="field">
@@ -47,8 +49,6 @@ export default {
       }
       vm.nodeGroups = groups;
     }).do();
-
-    $(this.$refs.ruletip).popup();
   },
 
   methods: {
@@ -59,15 +59,15 @@ export default {
       this.$emit('change', this.index, key, val);
     },
     changeNodeGroups: function(val){
-      var gids = val.trim().length === 0 ? [] : val.split(',');
+      var gids = Array.isArray(val) ? val : (val.trim().length === 0 ? [] : val.split(','));
       this.change('gids', gids);
     },
     changeIncludeNodes: function(val){
-      var nids = val.trim().length === 0 ? [] : val.split(',');
+      var nids = Array.isArray(val) ? val : (val.trim().length === 0 ? [] : val.split(','));
       this.change('nids', nids);
     },
     changeExcludeNodes: function(val){
-      var exclude_nids = val.trim().length === 0 ? [] : val.split(',');
+      var exclude_nids = Array.isArray(val) ? val : (val.trim().length === 0 ? [] : val.split(','));
       this.change('exclude_nids', exclude_nids);
     }
   },
